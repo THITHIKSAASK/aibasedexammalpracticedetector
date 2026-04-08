@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Admin Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="top-nav">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-size:24px;">🛡️</div>
+            <h2 style="margin:0; font-family:var(--font-head);">Institution Portal</h2>
+        </div>
+        <div id="nav-controls" style="display:flex; align-items:center; gap:20px;">
+            <div class="user-info" style="text-align:right; display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="toggleProfileModal()">
+                <div style="line-height:1.2;">
+                    <div id="user-display-name" style="font-weight:600; font-size:14px; text-transform:uppercase;"></div>
+                    <div style="font-size:11px; opacity:0.6; font-weight:700;">ADMIN</div>
+                </div>
+                <div class="profile-circle" id="user-initial" style="margin:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-weight:bold; background:var(--primary); color:white; border:none; font-family:var(--font-head);">A</div>
+            </div>
+            <button onclick="logout()" style="width:auto; padding: 8px 18px; margin:0; background:rgba(0,0,0,0.05); color:inherit; font-weight:600; font-size:13px; border-radius:8px;">Logout</button>
+        </div>
+    </div>
+    
+    <div class="dashboard-layout">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <h3>Admin Panel</h3>
+            <ul>
+                <li><a href="#" class="active">Global Monitoring</a></li>
+                <li><a href="#">System Reports</a></li>
+            </ul>
+        </div>
+        
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <div class="dashboard-header" style="margin-bottom:20px;">
+                <h1>Global Monitoring Dashboard</h1>
+                <p>Institutional overview of exam attempts and malpractice analytics.</p>
+            </div>
+            
+            <div class="grid" id="analytics-grid">
+                <!-- Cards drop here -->
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/theme.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/comments.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>

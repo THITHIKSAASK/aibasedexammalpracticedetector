@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Institutional Audit Report</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        body { background: #fff; color: #000; padding: 40px; font-family: 'Inter', sans-serif; }
+        .audit-container { max-width: 800px; margin: auto; border: 1px solid #ccc; padding: 40px; border-top: 10px solid var(--primary); }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+        .header h1 { font-family: 'Outfit', sans-serif; margin: 0; font-size: 28px; }
+        .header p { margin: 5px 0 0; color: #555; }
+        .section { margin-bottom: 30px; }
+        .section h2 { border-bottom: 1px solid #ddd; padding-bottom: 5px; font-size: 20px; color: var(--primary); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #f4f4f4; }
+        .timeline-item { border-left: 3px solid var(--danger); padding: 10px 15px; margin-bottom: 10px; background: #fafafa; }
+        .timeline-item.safe { border-left-color: var(--success); }
+        .footer { margin-top: 50px; display: flex; justify-content: space-between; padding-top: 20px; border-top: 1px dashed #ccc; }
+        .signature-box { text-align: center; width: 200px; }
+        .signature-line { border-top: 1px solid #000; margin-top: 40px; padding-top: 5px; }
+        @media print {
+            body { padding: 0; background: #fff; }
+            .audit-container { border: none; padding: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="text-align:center; margin-bottom: 20px;">
+        <button onclick="window.print()" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer;">🖨️ Print / Save as PDF</button>
+    </div>
+    
+    <div class="audit-container">
+        <div class="header">
+            <h1>Bannari Amman Institute</h1>
+            <p>Official Institutional Protocol Audit Report</p>
+            <p style="font-size: 14px; opacity: 0.8;" id="report-date"></p>
+        </div>
+
+        <div class="section" id="student-meta" style="display:flex; justify-content:space-between; align-items:center;">
+            <div id="meta-text">
+                <h2>Student Metadata</h2>
+                <!-- Injected by JS -->
+            </div>
+            <div id="identity-snapshot-container" style="text-align:right;">
+                <!-- Snapshot Injected by JS -->
+            </div>
+        </div>
+
+        <div class="section" id="exam-summary">
+            <h2>Assessment Summary</h2>
+            <table id="exam-table">
+                <thead>
+                    <tr>
+                        <th>Protocol</th>
+                        <th>Subject</th>
+                        <th>Total Score</th>
+                        <th>Status</th>
+                        <th>Warnings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Injected by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section" id="integrity-timeline">
+            <h2>Integrity Timeline & Violations</h2>
+            <div id="timeline-container">
+                <p>Loading timeline...</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="signature-box">
+                <p>System Administrator</p>
+                <div class="signature-line">Antigravity AI Proctor</div>
+            </div>
+            <div class="signature-box">
+                <p>Faculty Investigator</p>
+                <div class="signature-line" id="faculty-name">Signature</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/report.js"></script>
+</body>
+</html>

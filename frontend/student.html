@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="subject-theme"></div>
+    <div class="top-nav">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-size:24px;">🌐</div>
+            <h2 style="margin:0; font-family:var(--font-head);">Institution Portal</h2>
+        </div>
+        <div id="nav-controls" style="display:flex; align-items:center; gap:20px;">
+            <div class="user-info" style="text-align:right; display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="toggleProfileModal()">
+                <div style="line-height:1.2;">
+                    <div id="user-display-name" style="font-weight:600; font-size:14px; text-transform:uppercase;">
+                    </div>
+                    <div style="font-size:11px; opacity:0.6; font-weight:700;">STUDENT</div>
+                </div>
+                <div class="profile-circle" id="user-initial"
+                    style="margin:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-weight:bold; background:var(--primary); color:white; border:none; font-family:var(--font-head);">
+                    T</div>
+            </div>
+            <button onclick="logout()"
+                style="width:auto; padding: 8px 18px; margin:0; background:rgba(0,0,0,0.05); color:inherit; font-weight:600; font-size:13px; border-radius:8px;">Logout</button>
+        </div>
+    </div>
+
+    <div class="dashboard-layout">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <h3>Student Panel</h3>
+            <ul>
+                <li><a href="#" class="active">My Exams</a></li>
+                <li><a href="#">Help & Support</a></li>
+            </ul>
+        </div>
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- SUBJECT SELECTION (DEPARTMENTS) -->
+            <div id="subject-selection-view">
+                <h1>Academic Departments</h1>
+                <p style="margin-bottom: 30px;">Select a department to explore available exams and curriculum.</p>
+
+                <div class="grid subject-grid">
+                    <div class="card subject-card" id="subject-card-Science" onclick="selectSubject('Science')"
+                        style="position:relative;">
+                        <div class="subject-icon">🧪</div>
+                        <h3>Science</h3>
+                        <p>Biology, Physics, & Chemistry</p>
+                    </div>
+                    <div class="card subject-card" id="subject-card-History" onclick="selectSubject('History')"
+                        style="position:relative;">
+                        <div class="subject-icon">📜</div>
+                        <h3>History</h3>
+                        <p>World History & Civilization</p>
+                    </div>
+                    <div class="card subject-card" id="subject-card-English" onclick="selectSubject('English')"
+                        style="position:relative;">
+                        <div class="subject-icon">✍️</div>
+                        <h3>English</h3>
+                        <p>Literature & Grammar</p>
+                    </div>
+                    <div class="card subject-card" id="subject-card-Math" onclick="selectSubject('Math')"
+                        style="position:relative;">
+                        <div class="subject-icon">📐</div>
+                        <h3>Math</h3>
+                        <p>Calculus & Algebra</p>
+                    </div>
+                    <div class="card subject-card" id="subject-card-Geography" onclick="selectSubject('Geography')"
+                        style="position:relative;">
+                        <div class="subject-icon">🌍</div>
+                        <h3>Geography</h3>
+                        <p>Maps, Earth & Environment</p>
+                    </div>
+                    <div class="card subject-card" id="subject-card-Engineering" onclick="selectSubject('Engineering')"
+                        style="position:relative;">
+                        <div class="subject-icon">⚙️</div>
+                        <h3>Engineering</h3>
+                        <p>Systems, Circuits & Logic</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EXAM LIST -->
+            <div id="exam-list-view" style="display: none;">
+                <div class="dashboard-header"
+                    style="margin-bottom: 25px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h1 id="selected-subject-title">Subject Exams</h1>
+                        <p>Available monitoring sessions for your selection.</p>
+                    </div>
+                    <button onclick="backToSubjects()" style="background:var(--secondary);">Back to Departments</button>
+                </div>
+                <div class="grid" id="student-exams-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/theme.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/student.js"></script>
+</body>
+
+</html>

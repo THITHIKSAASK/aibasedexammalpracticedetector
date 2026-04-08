@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Interface</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="js/theme.js"></script>
+</head>
+<body>
+    <div class="subject-theme"></div>
+    <div class="warning-banner" id="global-warning-banner">STRICT MONITORING: Violations recorded. Disqualification is imminent upon reaching 5 total warnings.</div>
+    
+    <div class="freeze-overlay" id="freeze-overlay">
+        <div style="background:var(--danger); padding:40px; border-radius:10px; color:white; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <h1 style="color:white; font-size:40px;">CRITICAL VIOLATION DETECTED</h1>
+            <p style="font-size:20px;">System locked temporarily. 1 final warning remaining.</p>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+    
+    <div class="top-nav">
+        <h2 style="margin:0;">Institutional Exam Proctoring</h2>
+        <div id="nav-controls" style="display:flex; align-items:center;">
+            <span id="user-display-name" style="font-weight:500;"></span>
+        </div>
+    </div>
+
+    <!-- FIXED PROCTORING CAMERA (TOP-LEFT) -->
+    <div class="video-container" id="proctoring-pip">
+        <div class="proctoring-status">Proctoring Active</div>
+        <video id="webcam" autoplay muted playsinline></video>
+        <div id="volume-meter" style="position: absolute; bottom: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: #00ff00; border: 1.5px solid white;"></div>
+    </div>
+
+    <div class="container" id="exam-container" style="margin-left: 260px;"> <!-- Offset for PIP camera -->
+        <div class="card" style="position: relative;">
+            <p style="position: absolute; top: 25px; right: 30px; font-weight: bold; font-size: 18px; color: var(--primary);">Time: <span id="timer">...</span></p>
+            
+            <h1 id="welcome-text" style="font-family:var(--font-head);">Exam Protocol Active</h1>
+            <p style="color:var(--danger); font-weight:600; font-size:14px;">Warning: Strict AI monitoring is active. Full-screen and focus detection engaged.</p>
+            
+            <div id="monitor-toast" class="monitor-toast"></div>
+            
+            <div id="dynamic-questions-container" class="exam-content" style="text-align: left; margin-top:20px;">
+                <p>Establishing secure connection to question bank...</p>
+            </div>
+            
+            <div style="background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; margin-top:30px; border: 1px solid var(--border-color);">
+                <p class="score-display" style="margin:0; font-weight:bold;">Malpractice Score Tracker: <span id="malpractice-score" style="color:var(--primary);">0</span></p>
+                <p class="warning-display" style="margin:5px 0 0 0; font-weight:bold;">Total Warnings: <span id="warning-count-display" style="color:var(--danger);">0</span>/5</p>
+            </div>
+
+            <button onclick="submitExam()" style="margin-top:20px;">Submit Exam</button>
+        </div>
+    </div>
+    <div class="freeze-overlay" id="verification-overlay" style="display:flex; flex-direction:column; background:var(--bg-main);">
+        <div class="card" style="max-width: 500px; text-align: center; margin-top:20vh; z-index: 10001;">
+            <h1 style="color:var(--primary); font-family:var(--font-head);">Identity Verification</h1>
+            <p>Please look at the camera to verify your identity. Your face must be clearly visible.</p>
+            <button id="capture-snapshot-btn" onclick="captureSnapshot()" style="margin-top:20px; font-size:16px;">📸 Capture Snapshot & Verify</button>
+            <p id="verification-error" style="color:var(--danger); margin-top:10px; font-weight:bold;"></p>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/malpractice.js"></script>
+    <script src="js/exam.js"></script>
+</body>
+</html>
