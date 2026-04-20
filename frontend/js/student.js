@@ -137,6 +137,7 @@ window.startExam = async function(attemptId, examId) {
 }
 
 window.beginSession = async function(attemptId, examId) {
+    try {
         console.log(`Attempting to start exam. AttemptID: ${attemptId}, ExamID: ${examId}`);
         const res = await fetch(`/api/student/exam/${attemptId}/start`, { method: 'POST' });
         if(res.ok) {
@@ -390,4 +391,3 @@ function updateSubjectBadges() {
         }
     });
 }
-
