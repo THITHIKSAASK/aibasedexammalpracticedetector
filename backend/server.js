@@ -12,8 +12,21 @@ const PORT = process.env.PORT || 3000;
 // Multer setup for PDF uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
+const chatStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = path.join(__dirname, '../frontend/uploads/chat');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '-' + file.originalname);
+    }
+});
+const uploadChat = multer({ storage: chatStorage });
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for Base64 image snapshots
 
 // REQUEST LOGGER
 app.use((req, res, next) => {
@@ -44,10 +57,23 @@ app.post('/api/register', (req, res) => {
         return res.status(400).json({ error: 'Only institutional email IDs (@bannari.com) are allowed.' });
     }
 
-    // Auto-generate Roll Number (e.g. IT01)
-    const prefix = (cls || 'ST').substring(0, 2).toUpperCase();
-    db.get(`SELECT COUNT(*) as count FROM users WHERE class = ?`, [cls], (err, row) => {
-        const rollNumber = `${prefix}${(row ? row.count + 1 : 1).toString().padStart(2, '0')}`;
+    // Auto-generate Roll Number (e.g. IT01 or FAC01)
+    let prefix = '';
+    let countQueryField = '';
+    let countQueryVal = '';
+    
+    if (finalRole === 'teacher') {
+        prefix = 'FAC';
+        countQueryField = 'role';
+        countQueryVal = 'teacher';
+    } else {
+        prefix = (cls || 'ST').substring(0, 2).toUpperCase();
+        countQueryField = 'class';
+        countQueryVal = cls;
+    }
+    
+    db.get(`SELECT COUNT(*) as count FROM users WHERE ${countQueryField} = ?`, [countQueryVal], (err, row) => {
+        const generatedRoll = `${prefix}${(row ? row.count + 1 : 1).toString().padStart(2, '0')}`;
         
         let finalGroupName = name;
         if (finalRole === 'teacher' && !name.toLowerCase().startsWith('dr.')) {
@@ -55,7 +81,7 @@ app.post('/api/register', (req, res) => {
         }
 
         const query = `INSERT INTO users (email, username, role, name, gender, class, section, subject, designation, roll_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        db.run(query, [email, username, finalRole, finalGroupName, req.body.gender || 'Institutional', cls, section, subject, designation, rollNumber], function(err) {
+        db.run(query, [email, username, finalRole, finalGroupName, req.body.gender || 'Institutional', cls, section, subject, designation, generatedRoll], function(err) {
             if (err) {
                 if (err.message.includes('UNIQUE')) {
                      return res.status(400).json({ error: 'Email already active in system.' });
@@ -64,9 +90,18 @@ app.post('/api/register', (req, res) => {
             }
             res.status(201).json({ 
                 message: 'Registration successful', 
-                user: { id: this.lastID, role: finalRole, username, name: finalGroupName, email, gender: req.body.gender, roll_number: rollNumber } 
+                user: { id: this.lastID, role: finalRole, username, name: finalGroupName, email, gender: req.body.gender, roll_number: generatedRoll } 
             });
         });
+    });
+});
+
+app.get('/api/registered-classes', (req, res) => {
+    db.all("SELECT DISTINCT class FROM users WHERE role = 'student' AND class IS NOT NULL ORDER BY class ASC", [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows.map(r => r.class));
     });
 });
 
@@ -111,124 +146,131 @@ app.post('/api/teacher/extract-content', (req, res, next) => {
 // ROBUST MOCK AI GENERATION ENGINE: Deep Knowledge Repository
 const QUESTION_BANK = {
     Science: [
-        { text: "What is the primary function of the mitochondria?", options: ["Energy production", "Protein synthesis", "Waste management", "Genetic storage"], correct: "Energy production", difficulty: "Medium" },
-        { text: "Which element has the atomic number 1?", options: ["Hydrogen", "Helium", "Oxygen", "Carbon"], correct: "Hydrogen", difficulty: "Easy" },
-        { text: "What is the speed of light?", options: ["299,792 km/s", "300,000 m/s", "150,000 km/s", "1,000,000 km/s"], correct: "299,792 km/s", difficulty: "Medium" },
-        { text: "Which organ is responsible for pumping blood?", options: ["Heart", "Lungs", "Brain", "Kidney"], correct: "Heart", difficulty: "Easy" },
-        { text: "The process by which plants make food is...", options: ["Photosynthesis", "Respiration", "Digestion", "Fermentation"], correct: "Photosynthesis", difficulty: "Easy" },
-        { text: "What is the powerhouse of the cell?", options: ["Mitochondria", "Nucleus", "Ribosome", "Cytoplasm"], correct: "Mitochondria", difficulty: "Easy" },
-        { text: "Which planet is known as the Red Planet?", options: ["Mars", "Venus", "Jupiter", "Saturn"], correct: "Mars", difficulty: "Easy" },
-        { text: "What is the chemical symbol for Water?", options: ["H2O", "CO2", "O2", "N2"], correct: "H2O", difficulty: "Easy" },
-        { text: "Which gas do plants absorb from the atmosphere?", options: ["Carbon Dioxide", "Oxygen", "Nitrogen", "Methane"], correct: "Carbon Dioxide", difficulty: "Easy" },
-        { text: "What is the study of living things called?", options: ["Biology", "Chemistry", "Physics", "Geology"], correct: "Biology", difficulty: "Easy" },
-        { text: "Newton's First Law is also known as...", options: ["Law of Inertia", "Law of Gravity", "Law of Motion", "Law of Energy"], correct: "Law of Inertia", difficulty: "Hard" },
-        { text: "Which part of the atom has a positive charge?", options: ["Proton", "Neutron", "Electron", "Nucleus"], correct: "Proton", difficulty: "Medium" }
+        { text: "What is the primary thermodynamic driving force for the spontaneous folding of a globular protein in an aqueous environment?", options: ["The increase in water entropy due to the hydrophobic effect", "The formation of hydrogen bonds between peptide backbones", "The reduction in electrostatic repulsion between charged side chains", "The covalent stabilization provided by disulfide bridge formation"], correct: "The increase in water entropy due to the hydrophobic effect", difficulty: "Hard" },
+        { text: "In the context of planetary atmospheres, which phenomenon explains why high-altitude gas temperature increases in the thermosphere?", options: ["Absorption of high-energy solar radiation by oxygen and nitrogen", "Convective heat transfer from the planetary surface", "Compression of gas due to increasing gravitational potential", "Accumulation of greenhouse gases at the upper boundaries"], correct: "Absorption of high-energy solar radiation by oxygen and nitrogen", difficulty: "Medium" },
+        { text: "Which principle describes why the speed of a fluid increases when it flows through a narrower section of a pipe?", options: ["Bernoulli's Principle", "Archimedes' Principle", "Pascal's Law", "Heisenberg Uncertainty Principle"], correct: "Bernoulli's Principle", difficulty: "Medium" }
     ],
     Geography: [
-        { text: "Which is the longest river in the world?", options: ["Nile", "Amazon", "Yangtze", "Mississippi"], correct: "Nile", difficulty: "Medium" },
-        { text: "What is the capital of France?", options: ["Paris", "Lyon", "Marseille", "Berlin"], correct: "Paris", difficulty: "Easy" },
-        { text: "Which continent is known as the 'Dark Continent'?", options: ["Africa", "Asia", "South America", "Australia"], correct: "Africa", difficulty: "Medium" },
-        { text: "Which is the largest ocean on Earth?", options: ["Pacific", "Atlantic", "Indian", "Arctic"], correct: "Pacific", difficulty: "Easy" },
-        { text: "What is the highest mountain in the world?", options: ["Everest", "K2", "Kangchenjunga", "Lhotse"], correct: "Everest", difficulty: "Easy" },
-        { text: "Which country is also a continent?", options: ["Australia", "Canada", "Russia", "Brazil"], correct: "Australia", difficulty: "Easy" },
-        { text: "The equator passes through which continent?", options: ["Africa", "Asia", "Europe", "North America"], correct: "Africa", difficulty: "Medium" },
-        { text: "Which is the smallest country in the world?", options: ["Vatican City", "Monaco", "San Marino", "Liechtenstein"], correct: "Vatican City", difficulty: "Medium" },
-        { text: "What is the capital of Japan?", options: ["Tokyo", "Kyoto", "Osaka", "Seoul"], correct: "Tokyo", difficulty: "Easy" },
-        { text: "Which desert is the largest in the world?", options: ["Sahara", "Gobi", "Arabian", "Kalahari"], correct: "Sahara", difficulty: "Medium" },
-        { text: "The Suez Canal connects which two seas?", options: ["Mediterranean and Red", "Black and Caspian", "North and Baltic", "Red and Arabian"], correct: "Mediterranean and Red", difficulty: "Hard" }
+        { text: "What is the primary cause of the 'Rain Shadow' effect observed on the leeward side of mountain ranges?", options: ["Adiabatic cooling and moisture loss on the windward side", "High-pressure systems permanently stalled over the leeward side", "Decreased albedo on the windward side leading to evaporation", "Correlative movement of the Intertropical Convergence Zone"], correct: "Adiabatic cooling and moisture loss on the windward side", difficulty: "Hard" },
+        { text: "Which of the following describes a 'Karst' topography?", options: ["Landscapes formed from the dissolution of soluble rocks like limestone", "Glacial deposits forming elongated hills known as drumlins", "Arid regions characterized by desert pavement and ventifacts", "Volcanic regions showing extensive basaltic sheet flows"], correct: "Landscapes formed from the dissolution of soluble rocks like limestone", difficulty: "Medium" }
     ],
     History: [
-        { text: "Who was the first President of the United States?", options: ["George Washington", "Thomas Jefferson", "Abraham Lincoln", "John Adams"], correct: "George Washington", difficulty: "Easy" },
-        { text: "In which year did World War II end?", options: ["1945", "1918", "1939", "1963"], correct: "1945", difficulty: "Medium" },
-        { text: "The French Revolution began in which year?", options: ["1789", "1776", "1812", "1848"], correct: "1789", difficulty: "Medium" },
-        { text: "Who was the first human in space?", options: ["Yuri Gagarin", "Neil Armstrong", "Buzz Aldrin", "John Glenn"], correct: "Yuri Gagarin", difficulty: "Medium" },
-        { text: "Which empire built the Colosseum in Rome?", options: ["Roman", "Greek", "Egyptian", "Byzantine"], correct: "Roman", difficulty: "Easy" },
-        { text: "Who wrote the 'I Have a Dream' speech?", options: ["Martin Luther King Jr.", "Malcolm X", "Nelson Mandela", "Rosa Parks"], correct: "Martin Luther King Jr.", difficulty: "Easy" },
-        { text: "The Titanic sank in which year?", options: ["1912", "1905", "1923", "1898"], correct: "1912", difficulty: "Easy" },
-        { text: "Magna Carta was signed in which year?", options: ["1215", "1066", "1492", "1776"], correct: "1215", difficulty: "Hard" },
-        { text: "Who was the Queen of England during the Spanish Armada?", options: ["Elizabeth I", "Mary I", "Victoria", "Anne"], correct: "Elizabeth I", difficulty: "Hard" }
+        { text: "The Treaty of Westphalia (1648) is considered a turning point in international relations primarily because it...", options: ["Established the concept of state sovereignty and non-interference", "Concluded the Napoleonic Wars and redrew the map of Europe", "Founded the League of Nations to prevent future global conflicts", "Unified the German states under a single imperial crown"], correct: "Established the concept of state sovereignty and non-interference", difficulty: "Hard" },
+        { text: "What was the significance of the 1955 Bandung Conference?", options: ["It marked the emergence of the Non-Aligned Movement", "It served as the formal end of the Korean War", "It established the European Coal and Steel Community", "It was the first summit of the North Atlantic Treaty Organization"], correct: "It marked the emergence of the Non-Aligned Movement", difficulty: "Hard" }
     ],
     Math: [
-        { text: "What is the square root of 144?", options: ["12", "14", "10", "16"], correct: "12", difficulty: "Easy" },
-        { text: "What is 15% of 200?", options: ["30", "20", "40", "15"], correct: "30", difficulty: "Medium" },
-        { text: "Solve for x: 2x + 5 = 15", options: ["5", "10", "7.5", "20"], correct: "5", difficulty: "Medium" },
-        { text: "What is the value of Pi (to 2 decimal places)?", options: ["3.14", "3.16", "3.12", "3.18"], correct: "3.14", difficulty: "Easy" },
-        { text: "What is 7 times 8?", options: ["56", "54", "48", "64"], correct: "56", difficulty: "Easy" },
-        { text: "What is the sum of angles in a triangle?", options: ["180°", "90°", "360°", "270°"], correct: "180°", difficulty: "Easy" }
+        { text: "In a Fourier Transform, what does the transform directly convert?", options: ["A time-domain signal into its frequency components", "A discrete sequence into a continuous derivative", "A linear set of equations into a matrix determinant", "A spatial coordinate system into a polar representation"], correct: "A time-domain signal into its frequency components", difficulty: "Medium" },
+        { text: "What is the value of the limit of (sin x / x) as x approaches zero?", options: ["1", "0", "Infinity", "e"], correct: "1", difficulty: "Easy" },
+        { text: "Which theorem states that for a continuous function on a closed interval, there exists a point where the derivative equals the average rate of change?", options: ["Mean Value Theorem", "Intermediate Value Theorem", "Fundamental Theorem of Calculus", "Taylor's Theorem"], correct: "Mean Value Theorem", difficulty: "Medium" }
     ],
     English: [
-        { text: "Who wrote 'Romeo and Juliet'?", options: ["William Shakespeare", "Charles Dickens", "Mark Twain", "Jane Austen"], correct: "William Shakespeare", difficulty: "Easy" },
-        { text: "What is a synonym for 'Happy'?", options: ["Joyful", "Sad", "Angry", "Tired"], correct: "Joyful", difficulty: "Easy" },
-        { text: "Which of these is a noun?", options: ["Apple", "Run", "Beautifully", "Slowly"], correct: "Apple", difficulty: "Easy" },
-        { text: "Which of these is a verb?", options: ["Jump", "Blue", "Quickly", "Bird"], correct: "Jump", difficulty: "Easy" },
-        { text: "Identify the antonym of 'Victory'.", options: ["Defeat", "Success", "Triumph", "Win"], correct: "Defeat", difficulty: "Medium" },
-        { text: "What is the superlatively form of 'Good'?", options: ["Best", "Better", "Goodest", "Greatest"], correct: "Best", difficulty: "Easy" },
-        { text: "Who wrote the novel '1984'?", options: ["George Orwell", "Aldous Huxley", "Ray Bradbury", "H.G. Wells"], correct: "George Orwell", difficulty: "Hard" }
+        { text: "In literary theory, the term 'Juxtaposition' refers to...", options: ["Placing two contrasting elements side by side to highlight differences", "The use of excessive detail to describe a setting", "An indirect reference to an external person, place, or event", "The attribution of human characteristics to inanimate objects"], correct: "Placing two contrasting elements side by side to highlight differences", difficulty: "Medium" },
+        { text: "Which of the following best defines an 'Epistolary' novel?", options: ["A novel written as a series of documents, such as letters or diary entries", "A satirical work aiming to criticize societal flaws", "A story focusing on the internal psychological growth of a protagonist", "A narrative that employs multiple non-linear timelines"], correct: "A novel written as a series of documents, such as letters or diary entries", difficulty: "Medium" }
     ],
     Engineering: [
-        { text: "What is the unit of Electrical Resistance?", options: ["Ohm", "Volt", "Ampere", "Watt"], correct: "Ohm", difficulty: "Easy" },
-        { text: "Which law states V = IR?", options: ["Ohm's Law", "Newton's Law", "Faraday's Law", "Kirchhoff's Law"], correct: "Ohm's Law", difficulty: "Easy" },
-        { text: "What is the primary component of an IC?", options: ["Silicon", "Copper", "Gold", "Silver"], correct: "Silicon", difficulty: "Medium" }
+        { text: "In Digital Signal Processing, what is the Nyquist frequency?", options: ["Half the sampling rate of a discrete signal processing system", "The resonance frequency of a piezoelectric crystal", "The maximum bandwidth of a copper-based transmission medium", "The switching frequency of a MOSFET in a power converter"], correct: "Half the sampling rate of a discrete signal processing system", difficulty: "Hard" },
+        { text: "What is the primary advantage of a 'Three-Phase' power system over a single-phase system for industrial applications?", options: ["Constant power delivery and more efficient motor starting", "Simplified wiring requirements for long-distance transmission", "Lower voltage requirements for high-power devices", "Inherent protection against electromagnetic interference"], correct: "Constant power delivery and more efficient motor starting", difficulty: "Medium" }
+    ],
+    "Computer Science": [
+        { text: "Which data structure uses the Last-In, First-Out (LIFO) principle?", options: ["Stack", "Queue", "Linked List", "Binary Tree"], correct: "Stack", difficulty: "Easy" },
+        { text: "What is the time complexity of searching for an element in a sorted array using Binary Search?", options: ["O(log n)", "O(n)", "O(n log n)", "O(1)"], correct: "O(log n)", difficulty: "Medium" },
+        { text: "In database management, what does the 'ACID' property 'Atomicity' ensure?", options: ["Transactions are all-or-nothing", "Data remains consistent after failure", "Multiple transactions can run concurrently", "Committed data is saved permanently"], correct: "Transactions are all-or-nothing", difficulty: "Hard" }
     ]
 };
 
 app.post('/api/teacher/generate-questions', (req, res) => {
-    const { keyword, sections, difficulty } = req.body;
+    const { keyword, sections, difficulty, pdfContext } = req.body;
     let finalQuestions = [];
     
     // Find closest subject match or fallback to Science
     const subject = keyword || 'Science';
     const originalPool = QUESTION_BANK[subject] || QUESTION_BANK['Science'];
     
+    // Track used question indices globally to avoid duplicates across sections
+    let usedIndices = new Set();
+    
     if (sections && sections.length > 0) {
         sections.forEach(sec => {
             const count = parseInt(sec.count) || 1;
-            const diffLabel = difficulty || 'Medium';
+            const sectionTitle = sec.title || 'General';
 
-            let sectionPool = [...originalPool];
+            // Build available pool (exclude already used questions)
+            let availablePool = originalPool
+                .map((q, idx) => ({ ...q, _idx: idx }))
+                .filter(q => !usedIndices.has(q._idx));
             
-            // Randomize the pool
-            for (let i = sectionPool.length - 1; i > 0; i--) {
+            // Shuffle available pool
+            for (let i = availablePool.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [sectionPool[i], sectionPool[j]] = [sectionPool[j], sectionPool[i]];
+                [availablePool[i], availablePool[j]] = [availablePool[j], availablePool[i]];
             }
 
-            for(let i=0; i<count; i++) {
-                if (i >= sectionPool.length) {
-                    // Improved fallback variance
-                    const fallbacks = [
-                        { opt: ["Standard Hypothesis", "Controlled Variable", "Independent Observation", "Empirical Proof"], ans: "Standard Hypothesis" },
-                        { opt: ["Qualitative Analysis", "Quantitative Measure", "Statistical Variance", "Null Model"], ans: "Qualitative Analysis" },
-                        { opt: ["Core Principle", "Secondary Effect", "External Constraint", "Linear Progression"], ans: "Core Principle" }
+            for (let i = 0; i < count; i++) {
+                if (i < availablePool.length) {
+                    const base = availablePool[i];
+                    usedIndices.add(base._idx);
+                    finalQuestions.push({
+                        section_title: sectionTitle,
+                        text: base.text,
+                        options: base.options,
+                        correct_answer: base.correct
+                    });
+                } else {
+                    // Generate contextual fallback based on section title and subject
+                    const academicTemplates = [
+                        { 
+                            text: `Analyze the role of [TOPIC] in modern ${subject}. Which of the following best describes its primary institutional impact?`,
+                            options: ["Strategic optimization of resources", "Standardization of protocol logic", "Enhanced predictive modeling", "Baseline structural integrity"],
+                            correct_answer: "Strategic optimization of resources"
+                        },
+                        { 
+                            text: `When evaluating "${sectionTitle}" within ${subject}, what is the critical threshold for system failure or logical inconsistency?`,
+                            options: ["Point of diminishing returns", "The asymptotic limit of the function", "The Nyquist-Shannon sampling boundary", "The thermodynamic equilibrium point"],
+                            correct_answer: "Point of diminishing returns"
+                        },
+                        { 
+                            text: `Which methodology is universally recognized as the gold standard for validating "${sectionTitle}" in the field of ${subject}?`,
+                            options: ["Double-blind peer-reviewed analysis", "Iterative heuristic modeling", "Recursive algorithmic validation", "Empirical observation and logging"],
+                            correct_answer: "Double-blind peer-reviewed analysis"
+                        },
+                        {
+                            text: `How does the integration of "${sectionTitle}" influence the scalability of ${subject}-based systems?`,
+                            options: ["Exponentially increases complexity", "Reduces operational overhead", "Creates linear dependency chains", "Neutralizes external interference"],
+                            correct_answer: "Reduces operational overhead"
+                        }
                     ];
-                    const selected = fallbacks[i % fallbacks.length];
+                    
+                    const template = academicTemplates[i % academicTemplates.length];
+                    let finalizedText = template.text.replace("[TOPIC]", sectionTitle);
+                    
+                    if (pdfContext && pdfContext.trim().length > 0) {
+                        const snippet = pdfContext.trim().substring(0, 45).replace(/(\r\n|\n|\r)/gm, " ");
+                        finalizedText += ` [AI Context Analysed: "${snippet}..."]`;
+                    }
                     
                     finalQuestions.push({
-                        section_title: sec.title || 'General',
-                        text: `[${diffLabel}] Analyze the application of ${subject} based on: ${sec.title} case study ${i+1}?`,
-                        options: selected.opt,
-                        correct_answer: selected.ans
+                        section_title: sectionTitle,
+                        text: finalizedText,
+                        options: template.options,
+                        correct_answer: template.correct_answer
                     });
-                    continue;
                 }
-
-                const base = sectionPool[i];
-                finalQuestions.push({
-                    section_title: sec.title || 'General',
-                    text: `(${sec.title}) ${base.text}`,
-                    options: base.options,
-                    correct_answer: base.correct
-                });
             }
         });
     } else {
-        const base = originalPool[0];
-        finalQuestions = [{ 
-            section_title: 'General', 
-            text: `[${difficulty || 'Medium'}] ${base.text}`, 
-            options: base.options, 
-            correct_answer: base.correct 
-        }];
+        // No sections defined — pick 5 random questions from the pool
+        let shuffled = [...originalPool];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        const pick = shuffled.slice(0, Math.min(5, shuffled.length));
+        finalQuestions = pick.map(q => ({
+            section_title: 'General',
+            text: q.text,
+            options: q.options,
+            correct_answer: q.correct
+        }));
     }
     
     res.json(finalQuestions);
@@ -356,57 +398,72 @@ app.post('/api/teacher/comment', (req, res) => {
     });
 });
 
-// TEACHER ENDPOINTS: Grouped Analytics Roster (Fixed Duplicate Removal)
 app.get('/api/teacher/:id/class-roster', (req, res) => {
     const teacherId = req.params.id;
     const query = `
-        SELECT 
-            u.id as student_id, u.name, u.class, u.roll_number,
-            COUNT(CASE WHEN a.status != 'Pending' AND a.status IS NOT NULL THEN 1 END) as attended_count,
-            COUNT(CASE WHEN a.status = 'Pending' THEN 1 END) as remaining_count
-        FROM users u
-        JOIN attempts a ON u.id = a.student_id
-        JOIN exams e ON a.exam_id = e.id
-        WHERE e.teacher_id = ?
-        GROUP BY u.id
-        ORDER BY u.class ASC, u.name ASC
+        SELECT id as student_id, name, class, roll_number, email
+        FROM users
+        WHERE role = 'student'
+        ORDER BY class ASC, name ASC
     `;
-    db.all(query, [teacherId], (err, rows) => {
+    db.all(query, [], (err, rows) => {
          if (err) return res.status(500).json({ error: err.message });
          res.json(rows);
     });
 });
 
-// MESSAGING SYSTEM (Safe Portal Communication)
+app.get('/api/teachers', (req, res) => {
+    db.all("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name ASC", [], (err, rows) => {
+         if (err) return res.status(500).json({ error: err.message });
+         res.json(rows);
+    });
+});
+
+// MESSAGING ENDPOINTS
 app.get('/api/messages/:id', (req, res) => {
-    const userId = req.params.id;
+    const { id } = req.params;
+    const role = req.query.role;
     
-    // Safety check for user ID to prevent server communication failure
-    if (!userId || userId === 'undefined') {
-        return res.json([]);
-    }
+    // Mark as read when fetching
+    db.run(`UPDATE messages SET is_read = 1 WHERE receiver_id = ?`, [id]);
 
     const query = `
-        SELECT m.*, s.name as sender_name, r.name as receiver_name 
+        SELECT m.*, 
+        u1.name as sender_name, u2.name as receiver_name
         FROM messages m
-        JOIN users s ON m.sender_id = s.id
-        JOIN users r ON m.receiver_id = r.id
-        WHERE m.sender_id = ? OR m.receiver_id = ?
+        JOIN users u1 ON m.sender_id = u1.id
+        LEFT JOIN users u2 ON m.receiver_id = u2.id
+        WHERE (m.sender_id = ? OR m.receiver_id = ?)
+        OR (m.broadcast_role = ? OR m.broadcast_role = 'all')
         ORDER BY m.timestamp ASC
     `;
-    db.all(query, [userId, userId], (err, rows) => {
+    db.all(query, [id, id, role], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows || []);
+        res.json(rows);
+    });
+});
+
+app.get('/api/messages/unread/:id', (req, res) => {
+    const { id } = req.params;
+    db.get(`SELECT COUNT(*) as count FROM messages WHERE receiver_id = ? AND is_read = 0`, [id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(row);
     });
 });
 
 app.post('/api/messages', (req, res) => {
-    const { sender_id, receiver_id, content } = req.body;
-    db.run("INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)", 
-    [sender_id, receiver_id, content], function(err) {
+    const { sender_id, receiver_id, content, message_type, file_url, broadcast_role } = req.body;
+    db.run("INSERT INTO messages (sender_id, receiver_id, content, message_type, file_url, broadcast_role) VALUES (?, ?, ?, ?, ?, ?)", 
+    [sender_id, receiver_id || null, content, message_type || 'text', file_url, broadcast_role || null], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: 'Message sent', id: this.lastID });
     });
+});
+
+app.post('/api/chat/upload', uploadChat.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const fileUrl = `/uploads/chat/${req.file.filename}`;
+    res.json({ fileUrl, type: req.file.mimetype.startsWith('image/') ? 'image' : 'pdf' });
 });
 
 app.get('/api/teacher/:id/exams', (req, res) => {
@@ -436,10 +493,10 @@ app.post('/api/teacher/exam', (req, res) => {
 
         const maxScore = questions.length;
 
-        // Automatically assign to the target section
+        // Automatically assign to the target section - uses LIKE for flexibility (e.g. 'CSE-A' matches 'BTech CS-A')
         db.run(`INSERT INTO attempts (student_id, exam_id, max_academic_score) 
-                SELECT id, ?, ? FROM users WHERE role = 'student' AND class = ?`, 
-                [examId, maxScore, targetClass], function(assignErr) {
+                SELECT id, ?, ? FROM users WHERE role = 'student' AND class LIKE ?`, 
+                [examId, maxScore, '%' + targetClass + '%'], function(assignErr) {
              if (assignErr) console.error("Sectional assignment error:", assignErr);
         });
 
@@ -480,7 +537,7 @@ app.get('/api/teacher/student-audit/:studentId/:teacherId', (req, res) => {
 // ADMIN ENDPOINTS
 app.get('/api/admin/analytics', (req, res) => {
     const query = `
-        SELECT a.id, a.status, a.score, a.warnings, u.email, u.name, u.class, e.subject, e.title, u.id as student_id
+        SELECT a.id, a.status, a.score, a.warnings, a.identity_snapshot, u.email, u.name, u.class, e.subject, e.title, u.id as student_id
         FROM attempts a 
         JOIN users u ON a.student_id = u.id 
         JOIN exams e ON a.exam_id = e.id
@@ -499,27 +556,57 @@ app.get('/api/admin/violations/:attemptId', (req, res) => {
     });
 });
 
-// CATCH-ALL JSON 404
-app.use((req, res) => {
-    res.status(404).json({ error: 'Endpoint not found or method not allowed' });
+// ADMIN: LIST USERS
+app.get('/api/admin/users', (req, res) => {
+    db.all("SELECT * FROM users WHERE role != 'admin' ORDER BY role DESC, class ASC, name ASC", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
 });
 
+// ADMIN: SYSTEM LOGS (COMMUNICATION PORTAL)
+app.get('/api/admin/system-logs', (req, res) => {
+    db.all("SELECT * FROM system_logs ORDER BY timestamp DESC LIMIT 100", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+// DELETE USER WITH REMARKS
 app.delete('/api/users/:id', (req, res) => {
     const userId = req.params.id;
+    const { remark, actorId } = req.body;
+    
     db.serialize(() => {
-        db.run("BEGIN TRANSACTION");
-        db.run("DELETE FROM violations WHERE attempt_id IN (SELECT id FROM attempts WHERE student_id = ?)", [userId]);
-        db.run("DELETE FROM attempts WHERE student_id = ?", [userId]);
-        db.run("DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?", [userId, userId]);
-        db.run("DELETE FROM users WHERE id = ?", [userId], function(err) {
-            if (err) {
-                db.run("ROLLBACK");
-                return res.status(500).json({ error: err.message });
-            }
-            db.run("COMMIT");
-            res.json({ success: true, message: "User and associated data purged." });
+        // Fetch user data first for logging
+        db.get("SELECT name, role FROM users WHERE id = ?", [userId], (err, user) => {
+            if (err || !user) return res.status(404).json({ error: 'User not found' });
+
+            db.run("BEGIN TRANSACTION");
+            db.run("DELETE FROM violations WHERE attempt_id IN (SELECT id FROM attempts WHERE student_id = ?)", [userId]);
+            db.run("DELETE FROM attempts WHERE student_id = ?", [userId]);
+            db.run("DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?", [userId, userId]);
+            db.run("DELETE FROM users WHERE id = ?", [userId], function(err) {
+                if (err) {
+                    db.run("ROLLBACK");
+                    return res.status(500).json({ error: err.message });
+                }
+                
+                // Add System Log
+                const logDesc = `User [${user.name}] (${user.role}) was purged. Remark: ${remark || 'Administrative action'}`;
+                db.run("INSERT INTO system_logs (event_type, target_id, target_name, actor_id, description) VALUES (?, ?, ?, ?, ?)",
+                    ['User Purge', userId, user.name, actorId, logDesc]);
+
+                db.run("COMMIT");
+                res.json({ success: true, message: "User and associated data purged with remarks." });
+            });
         });
     });
+});
+
+// CATCH-ALL JSON 404 (must be LAST)
+app.use((req, res) => {
+    res.status(404).json({ error: 'Endpoint not found or method not allowed' });
 });
 
 app.listen(PORT, () => {

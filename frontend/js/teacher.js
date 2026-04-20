@@ -3,25 +3,200 @@ let currentUser;
 window.onload = () => {
     currentUser = checkAuth(['teacher']);
     if (currentUser) {
-        fetchMyExams();
+        // Updated Sidebar Profile elements
+        document.getElementById('sidebar-user-name').innerText = currentUser.name || 'Faculty';
+        if (currentUser.roll_number) {
+            document.getElementById('sidebar-user-dept').innerText = `${currentUser.roll_number} | ${(currentUser.subject || 'INSTITUTIONAL').toUpperCase()}`;
+        } else if (currentUser.subject) {
+            document.getElementById('sidebar-user-dept').innerText = `${currentUser.subject.toUpperCase()} FACULTY`;
+        }
+        document.getElementById('sidebar-user-initial').innerText = (currentUser.name || 'F').charAt(0).toUpperCase();
+
+        document.getElementById('teacher-name-welcome').innerText = currentUser.name || 'Faculty';
+        showTab('landing-tab', 'home-nav');
+        
+        // Start notification poller
+        checkUnreadMessages();
+        setInterval(checkUnreadMessages, 15000); // 15s refresh
     }
 }
 
+async function checkUnreadMessages() {
+    if (!currentUser) return;
+    try {
+        const res = await fetch(`/api/messages/unread/${currentUser.id}`);
+        const { count } = await res.json();
+        const badge = document.getElementById('unread-badge');
+        if (badge) {
+            badge.style.display = count > 0 ? 'block' : 'none';
+            if (count > 0) badge.innerText = count > 9 ? '9+' : count;
+        }
+    } catch (err) {}
+}
+
 function showTab(tabId, navId) {
-    document.getElementById('exam-tab').style.display = 'none';
-    document.getElementById('roster-tab').style.display = 'none';
+    // Hide all tabs
+    const tabs = ['landing-tab', 'exam-tab', 'roster-tab', 'comm-tab', 'report-tab'];
+    tabs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
     
-    document.getElementById('exam-nav').classList.remove('active');
-    document.getElementById('roster-nav').classList.remove('active');
+    // Deactivate all nav links
+    const navs = ['home-nav', 'exam-nav', 'roster-nav', 'comm-nav'];
+    navs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+    });
     
-    document.getElementById(tabId).style.display = 'block';
-    if(navId) document.getElementById(navId).classList.add('active');
+    const activeTab = document.getElementById(tabId);
+    if (activeTab) activeTab.style.display = 'block';
+    
+    if (navId) {
+        const activeNav = document.getElementById(navId);
+        if (activeNav) activeNav.classList.add('active');
+    }
     
     if (tabId === 'roster-tab') {
         fetchClassRoster();
-    } else {
+    } else if (tabId === 'exam-tab') {
         fetchMyExams();
+    } else if (tabId === 'comm-tab') {
+        window.fetchTeacherMessages();
+        document.getElementById('unread-badge').style.display = 'none'; // Clear badge locally when entering
+        fetchTeacherLogs();
+        fetchTeacherContacts();
     }
+}
+
+let globalStudentsParams = [];
+
+async function fetchTeacherContacts() {
+    try {
+        const response = await fetch(`/api/teacher/${currentUser.id}/class-roster`);
+        const groupedStudents = await response.json();
+        
+        const uniqueStudents = {};
+        groupedStudents.forEach(s => {
+            uniqueStudents[s.student_id] = s;
+        });
+        globalStudentsParams = Object.values(uniqueStudents);
+
+        const deptSelect = document.getElementById('contact-department-filter');
+        if (deptSelect) {
+            const departments = new Set();
+            globalStudentsParams.forEach(s => { if (s.class) departments.add(s.class); });
+            deptSelect.innerHTML = '<option value="all">Select Subject</option>';
+            Array.from(departments).sort().forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                deptSelect.appendChild(opt);
+            });
+        }
+        
+        window.renderFilteredContacts();
+
+    } catch(err) {
+        console.error("Failed to fetch contacts", err);
+    }
+}
+
+window.renderFilteredContacts = function() {
+    const container = document.getElementById('teacher-contacts-container');
+    container.innerHTML = '';
+    
+    if (globalStudentsParams.length === 0) {
+        container.innerHTML = '<p style="padding:15px; opacity:0.6; font-size:13px;">No students assigned.</p>';
+        return;
+    }
+    
+    const filterSelect = document.getElementById('contact-department-filter');
+    const filter = filterSelect ? filterSelect.value : 'all';
+    
+    const sorted = [...globalStudentsParams].sort((a,b) => a.name.localeCompare(b.name));
+    const filtered = filter === 'all' ? sorted : sorted.filter(s => s.class === filter);
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<p style="padding:15px; opacity:0.6; font-size:13px;">No students found in this department.</p>';
+        return;
+    }
+
+    filtered.forEach(stu => {
+        const contactDiv = document.createElement('div');
+        contactDiv.style.borderBottom = '1px solid var(--border-color)';
+        contactDiv.style.padding = '12px 15px';
+        contactDiv.style.cursor = 'pointer';
+        contactDiv.style.display = 'flex';
+        contactDiv.style.alignItems = 'center';
+        contactDiv.style.gap = '10px';
+        contactDiv.style.transition = 'background 0.2s';
+        contactDiv.onmouseover = () => contactDiv.style.background = 'rgba(0,0,0,0.05)';
+        contactDiv.onmouseout = () => contactDiv.style.background = 'transparent';
+        
+        contactDiv.onclick = () => openChatModal(stu.student_id, stu.name);
+
+        contactDiv.innerHTML = `
+            <div class="profile-circle" style="width:32px; height:32px; font-size:14px; margin:0; pointer-events:none;">${stu.name.charAt(0)}</div>
+            <div style="pointer-events:none;">
+                <div style="font-weight:600; font-size:14px;">${stu.name}</div>
+                <div style="font-size:11px; opacity:0.7;">Class: ${stu.class}</div>
+            </div>
+        `;
+        container.appendChild(contactDiv);
+    });
+}
+async function fetchTeacherLogs() {
+    try {
+        const response = await fetch('/api/admin/system-logs'); // Teachers can see general logs for now
+        const logs = await response.json();
+        
+        const container = document.getElementById('teacher-logs-container');
+        if (!Array.isArray(logs) || logs.length === 0) {
+            container.innerHTML = '<p style="padding:20px;">No institutional messages found or server update in progress.</p>';
+            return;
+        }
+
+        let html = `<div style="display:flex; flex-direction:column; gap:10px; padding:20px; background:var(--bg-main); overflow-y:auto;">`;
+
+        logs.forEach(l => {
+            if (l.event_type === 'System Initialize' || l.description.includes('@category:debuggersd')) return;
+            const date = new Date(l.timestamp).toLocaleString();
+            html += `
+                <div style="
+                    align-self: flex-start;
+                    background: var(--border-color);
+                    color: var(--text-color);
+                    padding: 10px 15px;
+                    border-radius: 15px 15px 15px 0;
+                    max-width: 80%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                ">
+                    <div style="font-weight:700; font-size:12px; margin-bottom:5px; color:var(--primary);">${l.event_type}</div>
+                    <div style="line-height:1.4; font-size:14px;">${l.description}</div>
+                    <div style="font-size:10px; opacity:0.6; margin-top:5px; text-align:right;">${date}</div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (err) {
+        console.error("Error fetching logs", err);
+    }
+}
+
+function downloadChatPDF() {
+    const element = document.getElementById('chat-messages-body');
+    if (!element) return;
+    const opt = {
+      margin:       0.5,
+      filename:     'Teacher_Chat_Log.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
 }
 
 async function fetchMyExams() {
@@ -59,7 +234,7 @@ async function generateExam() {
     const duration = parseInt(document.getElementById('exam-duration').value);
 
     if (!title || !keyword) {
-        alert("Please provide title and keyword.");
+        window.BIT.alert("Please provide title and keyword.");
         return;
     }
 
@@ -210,7 +385,7 @@ async function fetchMessages() {
     const body = document.getElementById('chat-messages-body');
     
     try {
-        const response = await fetch(`/api/messages/${currentUser.id}`);
+        const response = await fetch(`/api/messages/${currentUser.id}?role=${currentUser.role}`);
         if (!response.ok) throw new Error("Portal communication error");
         
         const allMessages = await response.json();
@@ -233,10 +408,11 @@ async function fetchMessages() {
             `;
             return;
         }
-        
+
         conversation.forEach(m => {
-            const isMe = m.sender_id === currentUser.id;
             const bubble = document.createElement('div');
+            bubble.className = 'message-bubble animate-in';
+            const isMe = m.sender_id === currentUser.id;
             bubble.style.cssText = `
                 max-width: 80%;
                 padding: 10px 15px;
@@ -246,8 +422,41 @@ async function fetchMessages() {
                 background: ${isMe ? 'var(--primary)' : 'var(--secondary)'};
                 color: ${isMe ? '#fff' : 'var(--text-color)'};
                 box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                position: relative;
             `;
-            bubble.innerText = m.content;
+
+            if (m.broadcast_role) {
+                bubble.style.background = 'linear-gradient(135deg, #48246e, #6a11cb)';
+                bubble.style.color = '#fff';
+                bubble.style.alignSelf = 'center';
+                bubble.style.border = '2px solid var(--accent)';
+                bubble.innerHTML = `
+                    <div style="font-size:10px; font-weight:bold; margin-bottom:5px; opacity:0.8; text-transform:uppercase;">Institutional Announcement</div>
+                    ${m.content}
+                `;
+            } else if (m.message_type === 'image') {
+                bubble.innerHTML = `
+                    <div style="position:relative;">
+                        <img src="${m.file_url}" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${m.file_url}')">
+                        <a href="${m.file_url}" download class="no-print" style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.5); color:#fff; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-decoration:none;">💾</a>
+                    </div>
+                `;
+                if (m.content) bubble.innerHTML += `<p style="margin-top:5px;">${m.content}</p>`;
+            } else if (m.message_type === 'pdf') {
+                bubble.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:24px; cursor:pointer;" onclick="window.open('${m.file_url}')">📄</span>
+                        <div style="text-align:left; flex:1;">
+                            <div style="font-weight:700; font-size:12px;">Institutional Document</div>
+                            <div style="font-size:10px; opacity:0.8;">Secure PDF Attachment</div>
+                        </div>
+                        <a href="${m.file_url}" download class="no-print" style="background:rgba(0,0,0,0.1); color:inherit; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-decoration:none;">💾</a>
+                    </div>
+                `;
+                if (m.content) bubble.innerHTML += `<p style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">${m.content}</p>`;
+            } else {
+                bubble.innerText = m.content;
+            }
             body.appendChild(bubble);
         });
         body.scrollTop = body.scrollHeight;
@@ -269,7 +478,8 @@ async function sendMessage() {
             body: JSON.stringify({
                 sender_id: currentUser.id,
                 receiver_id: activeChatStudentId,
-                content: content
+                content: content,
+                message_type: 'text'
             })
         });
 
@@ -282,23 +492,62 @@ async function sendMessage() {
     }
 }
 
-async function deleteStudent(studentId, name) {
-    if (!confirm(`Are you sure you want to PERMANENTLY remove student: ${name}? All their exam records and violations will be purged.`)) return;
+async function handleChatFileUpload() {
+    const fileEl = document.getElementById('chat-file-input');
+    if (!fileEl.files || !fileEl.files[0]) return;
+    
+    const file = fileEl.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
 
     try {
-        const response = await fetch(`/api/users/${studentId}`, {
-            method: 'DELETE'
+        const uploadRes = await fetch('/api/chat/upload', {
+            method: 'POST',
+            body: formData
         });
-
-        if (response.ok) {
-            alert("Student record purged successfully.");
-            fetchClassRoster();
-        } else {
-            alert("Failed to delete student. Check permissions.");
+        const uploadData = await uploadRes.json();
+        
+        if (uploadData.fileUrl) {
+            // Send message with file metadata
+            await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender_id: currentUser.id,
+                    receiver_id: activeChatStudentId,
+                    content: `Sent a ${uploadData.type}`,
+                    message_type: uploadData.type,
+                    file_url: uploadData.fileUrl
+                })
+            });
+            fetchMessages();
+            fileEl.value = ''; // Reset
         }
     } catch (err) {
-        console.error("Purge Error:", err);
+        console.error("Chat upload failed", err);
+        alert("Institutional upload failed. Check connection.");
     }
+}
+
+async function deleteStudent(studentId, name) {
+    window.BIT.confirm("Institutional Purge", `Are you sure you want to PERMANENTLY remove student: ${name}? All their exam records and violations will be purged.`, async (confirmed) => {
+        if (!confirmed) return;
+        
+        try {
+            const response = await fetch(`/api/users/${studentId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                window.BIT.toast("Student record purged successfully", "success");
+                fetchClassRoster();
+            } else {
+                window.BIT.alert("Purge Failure", "Failed to delete student. Check permissions.");
+            }
+        } catch (err) {
+            console.error("Purge Error:", err);
+        }
+    });
 }
 
 function openAuditReport(studentId) {

@@ -3,35 +3,67 @@ let currentUser;
 window.onload = async () => {
     currentUser = checkAuth(['student']);
     if (currentUser) {
-        document.body.classList.remove('has-subject-theme');
+        // Redesigned Sidebar Profile
+        document.getElementById('sidebar-user-name').innerText = currentUser.name || 'Student';
+        if (currentUser.roll_number) {
+            document.getElementById('sidebar-user-dept').innerText = `${currentUser.roll_number} | ${(currentUser.class || 'INSTITUTIONAL').toUpperCase()}`;
+        } else {
+            document.getElementById('sidebar-user-dept').innerText = (currentUser.class || 'Institutional').toUpperCase();
+        }
+        document.getElementById('sidebar-user-initial').innerText = (currentUser.name || 'S').charAt(0).toUpperCase();
+        
+        document.getElementById('student-name-welcome').innerText = currentUser.name || 'Student';
+        
         await fetchAssignedExams();
-        updateSubjectBadges();
-        showDepartmentExplorer();
+        
+        // Notification poller
+        checkUnreadMessages();
+        setInterval(checkUnreadMessages, 15000);
     }
 }
 
-function showDepartmentExplorer() {
-    document.getElementById('subject-selection-view').style.display = 'block';
-    document.getElementById('exam-list-view').style.display = 'none';
+async function checkUnreadMessages() {
+    if (!currentUser) return;
+    try {
+        const res = await fetch(`/api/messages/unread/${currentUser.id}`);
+        const { count } = await res.json();
+        const badge = document.getElementById('unread-badge');
+        if (badge) {
+            badge.style.display = count > 0 ? 'block' : 'none';
+            if (count > 0) badge.innerText = count > 9 ? '9+' : count;
+        }
+    } catch (err) {}
 }
 
-function selectSubject(subject) {
-    document.getElementById('subject-selection-view').style.display = 'none';
-    document.getElementById('exam-list-view').style.display = 'block';
-    renderAllExams(subject);
+function showDashboardHome() {
+    showTab('dashboard-tab', 'home-nav');
 }
 
-function backToSubjects() {
-    showDepartmentExplorer();
+function showAssignedExams() {
+    showTab('exam-list-view', 'home-nav'); // Nav remains active at home
+    renderAllExams();
 }
 
-function showAssignedOnly() {
-    document.getElementById('subject-selection-view').style.display = 'none';
-    document.getElementById('exam-list-view').style.display = 'block';
-    renderAllExams(); // No filter = show all assigned
+function showTab(tabId, navId) {
+    const tabs = ['dashboard-tab', 'exam-list-view', 'comm-tab'];
+    tabs.forEach(t => {
+        const el = document.getElementById(t);
+        if (el) el.style.display = t === tabId ? 'block' : 'none';
+    });
+
+    const navs = ['home-nav', 'comm-nav'];
+    navs.forEach(n => {
+        const el = document.getElementById(n);
+        if (el) el.classList.toggle('active', n === navId);
+    });
+
+    if (tabId === 'comm-tab') {
+        window.fetchStudentMessages();
+        document.getElementById('unread-badge').style.display = 'none';
+    }
 }
 
-// Subject-selection functions removed per institutional protocol update.
+// Removed legacy subject explorers for simplified institutional dashboard
 
 let allExams = [];
 
@@ -86,28 +118,58 @@ function renderAllExams(subjectFilter = null) {
     });
 }
 
-async function startExam(attemptId, examId) {
-    if(!confirm("Are you ready to begin? Strict monitoring will activate immediately.")) return;
+window.startExam = async function(attemptId, examId) {
     try {
-        const res = await fetch(`/api/student/exam/${attemptId}/start`, { method: 'POST' });
-        if(res.ok) {
-            localStorage.setItem('activeExam', JSON.stringify({ attemptId, examId }));
-            window.location.href = 'exam.html';
+        if (window.BIT && window.BIT.confirm) {
+            window.BIT.confirm("Institutional Protocol", "Are you ready to begin? Strict monitoring will activate immediately.", (confirmed) => {
+                if (!confirmed) return;
+                window.beginSession(attemptId, examId);
+            });
         } else {
-            alert("Could not start exam. Please contact admin.");
+            console.warn("BIT.confirm not found, falling back to window.confirm");
+            const confirmed = window.confirm("Are you ready to begin? Strict monitoring will activate immediately.");
+            if (confirmed) window.beginSession(attemptId, examId);
         }
-    } catch (err) { alert("System error."); }
+    } catch (e) {
+        console.error("BIT.confirm UI Error: ", e);
+        alert("UI Error: " + e.message);
+    }
 }
 
-function resumeExam(attemptId, examId) {
-    localStorage.setItem('activeExam', JSON.stringify({ attemptId, examId }));
+window.beginSession = async function(attemptId, examId) {
+        console.log(`Attempting to start exam. AttemptID: ${attemptId}, ExamID: ${examId}`);
+        const res = await fetch(`/api/student/exam/${attemptId}/start`, { method: 'POST' });
+        if(res.ok) {
+            console.log("Exam started on server. Syncing local state...");
+            const examInfo = allExams.find(e => e.attempt_id == attemptId); // abstract equality
+            const duration = examInfo ? examInfo.duration : 120;
+            const subject = examInfo ? examInfo.subject : '';
+            localStorage.setItem('activeExam', JSON.stringify({ attemptId, examId, duration, subject }));
+            window.location.href = 'exam.html';
+        } else {
+            const data = await res.json().catch(() => ({}));
+            let msg = data.error || "Could not start exam. Please contact admin.";
+            if (window.BIT) window.BIT.alert("Access Denied", msg);
+            else alert("Access Denied: " + msg);
+        }
+    } catch (err) { 
+        if (window.BIT) window.BIT.alert("System Error", "Communication failure."); 
+        else alert("System Error: Communication failure.");
+    }
+}
+
+window.resumeExam = function(attemptId, examId) {
+    const examInfo = allExams.find(e => e.attempt_id == attemptId);
+    const duration = examInfo ? examInfo.duration : 120;
+    const subject = examInfo ? examInfo.subject : '';
+    localStorage.setItem('activeExam', JSON.stringify({ attemptId, examId, duration, subject }));
     window.location.href = 'exam.html';
 }
 let activeTeacherId = null;
 
 window.fetchStudentMessages = async function() {
     try {
-        const response = await fetch(`/api/messages/${currentUser.id}`);
+        const response = await fetch(`/api/messages/${currentUser.id}?role=${currentUser.role}`);
         const messages = await response.json();
         
         const threadsContainer = document.getElementById('teacher-threads');
@@ -118,15 +180,30 @@ window.fetchStudentMessages = async function() {
         
         // From existing messages
         messages.forEach(m => {
-            if (m.sender_id !== currentUser.id) teacherMap.set(m.sender_id, m.sender_name);
-            if (m.receiver_id !== currentUser.id) teacherMap.set(m.receiver_id, m.receiver_name);
+            if (m.sender_id && m.sender_id !== currentUser.id) teacherMap.set(m.sender_id, m.sender_name);
+            if (m.receiver_id && m.receiver_id !== currentUser.id) teacherMap.set(m.receiver_id, m.receiver_name);
         });
 
         // From assigned exams
-        if (window.allExams) {
-            window.allExams.forEach(e => {
-                if (e.teacher_id) teacherMap.set(e.teacher_id, e.teacher_name);
+        if (allExams && allExams.length > 0) {
+            allExams.forEach(e => {
+                if (e.teacher_id && e.teacher_name) {
+                    teacherMap.set(e.teacher_id, e.teacher_name);
+                }
             });
+        }
+        
+        // From all registered teachers globally
+        try {
+            const tr = await fetch('/api/teachers');
+            if (tr.ok) {
+                const globalTeachers = await tr.json();
+                globalTeachers.forEach(t => {
+                    if (!teacherMap.has(t.id)) teacherMap.set(t.id, t.name);
+                });
+            }
+        } catch(e) {
+            console.warn("Failed to load global teachers:", e);
         }
 
         threadsContainer.innerHTML = '';
@@ -161,12 +238,14 @@ function renderThread(tid, allMessages) {
     
     const thread = allMessages.filter(m => 
         (m.sender_id === currentUser.id && m.receiver_id === tid) ||
-        (m.sender_id === tid && m.receiver_id === currentUser.id)
+        (m.sender_id === tid && m.receiver_id === currentUser.id) ||
+        (m.sender_id === tid && m.broadcast_role)
     );
 
     thread.forEach(m => {
         const isMe = m.sender_id === currentUser.id;
         const bubble = document.createElement('div');
+        bubble.className = 'message-bubble animate-in';
         bubble.style.cssText = `
             max-width: 85%;
             padding: 8px 12px;
@@ -174,8 +253,41 @@ function renderThread(tid, allMessages) {
             align-self: ${isMe ? 'flex-end' : 'flex-start'};
             background: ${isMe ? 'var(--primary)' : 'var(--border-color)'};
             color: ${isMe ? '#fff' : 'var(--text-color)'};
+            position: relative;
         `;
-        bubble.innerText = m.content;
+        
+        if (m.broadcast_role) {
+            bubble.style.background = 'linear-gradient(135deg, #48246e, #6a11cb)';
+            bubble.style.color = '#fff';
+            bubble.style.alignSelf = 'center';
+            bubble.style.border = '2px solid var(--accent)';
+            bubble.innerHTML = `
+                <div style="font-size:10px; font-weight:bold; margin-bottom:5px; opacity:0.8; text-transform:uppercase;">Institutional Announcement</div>
+                ${m.content}
+            `;
+        } else if (m.message_type === 'image') {
+            bubble.innerHTML = `
+                <div style="position:relative;">
+                    <img src="${m.file_url}" style="max-width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${m.file_url}')">
+                    <a href="${m.file_url}" download class="no-print" style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.5); color:#fff; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:12px;">💾</a>
+                </div>
+            `;
+            if (m.content) bubble.innerHTML += `<p style="margin-top:5px;">${m.content}</p>`;
+        } else if (m.message_type === 'pdf') {
+            bubble.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:20px; cursor:pointer;" onclick="window.open('${m.file_url}')">📄</span>
+                    <div style="text-align:left; flex:1;">
+                        <div style="font-weight:700; font-size:11px;">Institutional Doc</div>
+                        <div style="font-size:9px; opacity:0.8;">Secure PDF</div>
+                    </div>
+                    <a href="${m.file_url}" download class="no-print" style="background:rgba(0,0,0,0.1); color:inherit; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:12px;">💾</a>
+                </div>
+            `;
+            if (m.content) bubble.innerHTML += `<p style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">${m.content}</p>`;
+        } else {
+            bubble.innerText = m.content;
+        }
         chatBody.appendChild(bubble);
     });
     chatBody.scrollTop = chatBody.scrollHeight;
@@ -185,7 +297,7 @@ window.sendStudentReply = async function() {
     const input = document.getElementById('student-chat-input');
     const content = input.value.trim();
     if (!content || !activeTeacherId) {
-        alert("Please select a faculty thread to reply to.");
+        window.BIT.toast("Please select a faculty thread first", "info");
         return;
     }
 
@@ -196,7 +308,8 @@ window.sendStudentReply = async function() {
             body: JSON.stringify({
                 sender_id: currentUser.id,
                 receiver_id: activeTeacherId,
-                content: content
+                content: content,
+                message_type: 'text'
             })
         });
 
@@ -206,6 +319,41 @@ window.sendStudentReply = async function() {
         }
     } catch (err) {
         console.error("Failed to send student message", err);
+    }
+}
+
+async function handleChatFileUpload() {
+    const fileEl = document.getElementById('chat-file-input');
+    if (!fileEl.files || !fileEl.files[0] || !activeTeacherId) return;
+    
+    const file = fileEl.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const uploadRes = await fetch('/api/chat/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const uploadData = await uploadRes.json();
+        
+        if (uploadData.fileUrl) {
+            await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender_id: currentUser.id,
+                    receiver_id: activeTeacherId,
+                    content: `Sent a ${uploadData.type}`,
+                    message_type: uploadData.type,
+                    file_url: uploadData.fileUrl
+                })
+            });
+            window.fetchStudentMessages();
+            fileEl.value = '';
+        }
+    } catch (err) {
+        console.error("Student chat upload failed", err);
     }
 }
 function updateSubjectBadges() {

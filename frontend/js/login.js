@@ -1,12 +1,12 @@
 async function login() {
-    const username = document.getElementById('username').value.trim();
-    if (!username) return;
+    const email = document.getElementById('username').value.trim();
+    if (!email) return;
 
     try {
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username })
+            body: JSON.stringify({ email })
         });
         const data = await response.json();
 

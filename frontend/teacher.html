@@ -12,36 +12,62 @@
     <div class="subject-theme"></div>
     <div class="top-nav">
         <div style="display:flex; align-items:center; gap:12px;">
-            <div style="font-size:24px;">🏛️</div>
-            <h2 style="margin:0; font-family:var(--font-head);">Institution Portal</h2>
+            <img src="hero-campus.png" alt="BIT" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid rgba(255,255,255,0.3);">
+            <h2 style="margin:0; font-family:var(--font-head);">Bannari Amman Institute of Technology</h2>
         </div>
         <div id="nav-controls" style="display:flex; align-items:center; gap:20px;">
-            <div class="user-info" style="text-align:right; display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="toggleProfileModal()">
+            <div class="header-profile" onclick="toggleProfileModal()" style="display:flex; align-items:center; gap:10px; cursor:pointer; background:rgba(255,255,255,0.1); padding:5px 15px; border-radius:20px;">
+                <div class="profile-circle" id="sidebar-user-initial" style="width:32px; height:32px; margin:0; display:flex; align-items:center; justify-content:center; background:var(--primary); font-weight:bold; border-radius:50%;">S</div>
                 <div style="line-height:1.2;">
-                    <div id="user-display-name" style="font-weight:600; font-size:14px; text-transform:uppercase;"></div>
-                    <div style="font-size:11px; opacity:0.6; font-weight:700;">FACULTY</div>
+                    <div id="sidebar-user-name" style="font-weight:700; font-size:13px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Faculty</div>
+                    <div id="sidebar-user-dept" style="font-size:10px; opacity:0.8; font-weight:600;">Faculty ID</div>
                 </div>
-                <div class="profile-circle" id="user-initial" style="margin:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-weight:bold; background:var(--primary); color:white; border:none; font-family:var(--font-head);">S</div>
             </div>
-            <button onclick="logout()" style="width:auto; padding: 8px 18px; margin:0; background:rgba(0,0,0,0.05); color:inherit; font-weight:600; font-size:13px; border-radius:8px;">Logout</button>
+            <button class="theme-toggle" onclick="toggleTheme()" style="width:auto; padding: 8px 15px;">🌓</button>
+            <button onclick="logout()" style="width:auto; background:var(--danger); padding:8px 15px; font-size:14px; font-weight:bold;">Sign Out</button>
         </div>
     </div>
     <div class="dashboard-layout">
         <!-- SIDEBAR -->
+        <!-- SIDEBAR -->
         <div class="sidebar">
-            <h3>Teacher Panel</h3>
-            <ul>
-                <li><a href="#" id="exam-nav" class="active" onclick="showTab('exam-tab', 'exam-nav')">Manage Exams</a>
-                </li>
-                <li><a href="#" id="roster-nav" onclick="showTab('roster-tab', 'roster-nav')">My Class Roster</a></li>
-            </ul>
+            <div>
+                <h3 style="display:flex; align-items:center; gap:10px;">
+                    Teacher Panel
+                </h3>
+            </div>
         </div>
         <!-- MAIN CONTENT -->
         <div class="main-content">
-            <div id="exam-tab">
+            <!-- LANDING PAGE -->
+            <div id="landing-tab">
                 <div class="dashboard-header" style="margin-bottom:30px;">
-                    <h1>Manage Exams</h1>
-                    <p>Generate monitored exams using Mock AI.</p>
+                    <h1>Welcome, <span id="teacher-name-welcome">Faculty</span></h1>
+                    <p>Select a protocol operation to manage your institutional sessions.</p>
+                </div>
+                <div class="mode-selector-grid">
+                    <div class="mode-card" onclick="showTab('roster-tab', 'roster-nav')">
+                        <h4>View Students</h4>
+                        <p>Analyze performance and class roster</p>
+                    </div>
+                    <div class="mode-card" onclick="showTab('exam-tab', 'exam-nav')">
+                        <h4>Create Exams</h4>
+                        <p>Generate new AI monitored protocols</p>
+                    </div>
+                    <div class="mode-card" onclick="showTab('comm-tab', 'comm-nav')">
+                        <h4>Communication</h4>
+                        <p>Institutional logs and message portal</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="exam-tab" style="display:none;">
+                <div class="dashboard-header" style="margin-bottom:30px; display:flex; justify-content:space-between; align-items:flex-end;">
+                    <div>
+                        <h1>Manage Exams</h1>
+                        <p>Generate monitored exams using Mock AI.</p>
+                    </div>
+                    <button onclick="showTab('landing-tab', 'home-nav')" style="width:auto; background:var(--secondary); color:var(--text-color); font-weight:600;">&larr; Back to Hub</button>
                 </div>
                 <div class="card form-card" style="margin-bottom: 40px; text-align: left;" id="builder-step-1">
                     <h3 style="margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
@@ -50,7 +76,7 @@
                     
                     <div style="display:flex; gap:15px; margin-bottom:20px;">
                         <select id="exam-subject" style="flex:1;">
-                            <option value="">Select Department</option>
+                            <option value="">Select Subject</option>
                             <option value="Science">Science</option>
                             <option value="History">History</option>
                             <option value="English">English</option>
@@ -102,11 +128,6 @@
                         <input type="number" id="exam-sections-count" placeholder="Logical Sections" value="2" min="1" style="flex:1;">
                         <select id="exam-target-class" style="flex:2;">
                             <option value="">Enroll Target Section...</option>
-                            <option value="CSE-A">CSE-A</option>
-                            <option value="CSE-B">CSE-B</option>
-                            <option value="IT">Information Technology</option>
-                            <option value="Science">Biological Science</option>
-                            <option value="ALL">All Departments</option>
                         </select>
                     </div>
                     <button onclick="navigateToSectionConfig()">Proceed to Section Layout &rarr;</button>
@@ -127,11 +148,42 @@
                 <div class="grid" id="exams-grid"></div>
             </div>
             <div id="roster-tab" style="display:none;">
-                <div class="dashboard-header" style="margin-bottom:30px;">
-                    <h1>Faculty Analytics Hub</h1>
-                    <p>Summary of student performance and engagement across your assigned departments.</p>
+                <div class="dashboard-header" style="margin-bottom:30px; display:flex; justify-content:space-between; align-items:flex-end;">
+                    <div>
+                        <h1>Faculty Analytics Hub</h1>
+                        <p>Summary of student performance and engagement across your assigned departments.</p>
+                    </div>
+                    <button onclick="showTab('landing-tab', 'home-nav')" style="width:auto; background:var(--secondary); color:var(--text-color); font-weight:600;">&larr; Back to Hub</button>
                 </div>
                 <div id="roster-tables-container"></div>
+            </div>
+
+            <!-- COMMUNICATION TAB -->
+            <div id="comm-tab" style="display:none;">
+                <div class="dashboard-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:30px;">
+                    <div>
+                        <h1>Communication Portal</h1>
+                        <p>Engage in 1-on-1 messaging with students and review system-wide alerts.</p>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="no-print" onclick="window.print()" style="width:auto; padding:10px 20px; background:var(--primary); font-weight:700;">🖨️ Download Chat Log (PDF)</button>
+                        <button onclick="showTab('landing-tab', 'home-nav')" style="width:auto; background:var(--secondary); color:var(--text-color); font-weight:600;">&larr; Back to Hub</button>
+                    </div>
+                </div>
+                <div style="display:flex; gap:20px;">
+                     <div class="card" style="flex:1; padding:0; overflow:hidden;">
+                        <div style="padding:15px; border-bottom:1px solid var(--border-color); background:rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="margin:0; color:var(--primary);">Student Contacts</h3>
+                            <select id="contact-department-filter" style="width:160px; font-size:12px; padding:5px 10px;" onchange="renderFilteredContacts()">
+                                <option value="all">Select Subject</option>
+                            </select>
+                        </div>
+                        <div id="teacher-contacts-container" style="max-height:500px; overflow-y:auto;"></div>
+                     </div>
+                     <div class="card" style="flex:2; padding:0; overflow:hidden;">
+                        <div id="teacher-logs-container" style="max-height:540px; overflow-y:auto;"></div>
+                     </div>
+                </div>
             </div>
         </div>
     </div>
@@ -141,18 +193,25 @@
         <div class="modal-content" style="max-width:500px; height:80vh; display:flex; flex-direction:column;">
             <div class="modal-header">
                 <h3>Institutional Message Log: <span id="chat-target-name">...</span></h3>
-                <button class="modal-close" onclick="closeChatModal()">&times;</button>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <button class="no-print" onclick="downloadChatPDF()" style="background:var(--secondary); color:var(--text-color); font-size:12px; padding:4px 10px; font-weight:bold;">🖨️ Download</button>
+                    <button class="modal-close" onclick="closeChatModal()">&times;</button>
+                </div>
             </div>
             <div id="chat-messages-body" style="flex:1; overflow-y:auto; padding:20px; background:var(--bg-main); display:flex; flex-direction:column; gap:10px;">
                 <!-- Messages dynamic -->
             </div>
-            <div class="modal-footer" style="padding:15px; border-top:1px solid var(--border-color); display:flex; gap:10px;">
-                <input type="text" id="chat-input" placeholder="Type protocol message..." style="flex:1; margin:0;">
+            <div class="modal-footer" style="padding:15px; border-top:1px solid var(--border-color); display:flex; gap:10px; align-items:center;">
+                <input type="file" id="chat-file-input" style="display:none;" onchange="handleChatFileUpload()">
+                <button onclick="document.getElementById('chat-file-input').click()" style="width:auto; padding:8px 12px; background:var(--secondary); font-size:18px;">📎</button>
+                <input type="text" id="chat-input" placeholder="Type protocol message..." style="flex:1; margin:0;" onkeydown="if(event.key === 'Enter') sendMessage()">
                 <button onclick="sendMessage()" style="width:auto; padding:0 20px;">Send &rarr;</button>
             </div>
         </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="js/theme.js"></script>
+    <script src="js/institutional-ui.js"></script>
     <script src="js/modal.js"></script>
     <script src="js/comments.js"></script>
     <script src="js/common.js"></script>

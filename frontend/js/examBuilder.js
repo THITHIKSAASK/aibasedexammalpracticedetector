@@ -62,7 +62,7 @@ async function handleSourceUpload() {
 function navigateToSectionConfig() {
     examConfig.title = document.getElementById('exam-title').value.trim();
     examConfig.subject = document.getElementById('exam-subject').value;
-    examConfig.duration = parseInt(document.getElementById('exam-duration').value);
+    examConfig.duration = parseInt(document.getElementById('exam-duration').value) || 30; // Default 30 minutes
     examConfig.difficulty = document.getElementById('exam-difficulty').value;
     examConfig.type = document.getElementById('exam-type').value;
     examConfig.sectionCount = parseInt(document.getElementById('exam-sections-count').value) || 1;
@@ -70,6 +70,11 @@ function navigateToSectionConfig() {
 
     if (!examConfig.title || !examConfig.subject || !examConfig.targetClass) {
         alert("Please provide an exam title, select a department, and enroll a target section.");
+        return;
+    }
+    
+    if (!examConfig.duration || examConfig.duration < 1) {
+        alert("Please set a valid exam duration in minutes.");
         return;
     }
 
@@ -220,3 +225,29 @@ function cancelBuilder() {
     document.getElementById('upload-status').innerText = '';
     examConfig.pdfText = null;
 }
+
+// Dynamically load registered classes for the dropdown
+async function loadRegisteredClasses() {
+    try {
+        const res = await fetch('/api/registered-classes');
+        if (res.ok) {
+            const classes = await res.json();
+            const select = document.getElementById('exam-target-class');
+            if (!select) return;
+            select.innerHTML = '<option value="">Enroll Target Section...</option>';
+            classes.forEach(cls => {
+                const opt = document.createElement('option');
+                opt.value = cls;
+                opt.textContent = cls;
+                select.appendChild(opt);
+            });
+            // Add 'All' option
+            select.innerHTML += '<option value="BE">BE (All Streams)</option>';
+        }
+    } catch (err) {
+        console.error("Failed to load registered classes for dropdown:", err);
+    }
+}
+
+// Call upon script load since it's deferred at the bottom of the body
+loadRegisteredClasses();

@@ -54,6 +54,7 @@ async function registerTeacher() {
     const fields = {
         role: 'teacher',
         name: document.getElementById('t-name').value.trim(),
+        gender: document.getElementById('t-gender').value,
         email: document.getElementById('t-email').value.trim(),
         designation: document.getElementById('t-designation').value,
         subject: document.getElementById('t-subject').value,
@@ -67,6 +68,7 @@ async function registerStudent() {
     const fields = {
         role: 'student',
         name: document.getElementById('s-name').value.trim(),
+        gender: document.getElementById('s-gender').value,
         email: document.getElementById('s-email').value.trim(),
         class: document.getElementById('s-class').value.trim(),
         section: document.getElementById('s-section').value.trim()

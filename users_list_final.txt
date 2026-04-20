@@ -1,0 +1,37 @@
+STUDENT | Student 1 | student1@bannari.com | BTech History
+STUDENT | Student 10 | student10@bannari.com | BTech Geography
+STUDENT | Student 11 | student11@bannari.com | BTech Engineering
+STUDENT | Student 12 | student12@bannari.com | BTech Science
+STUDENT | Student 13 | student13@bannari.com | BTech History
+STUDENT | Student 14 | student14@bannari.com | BTech English
+STUDENT | Student 15 | student15@bannari.com | BTech Math
+STUDENT | Student 16 | student16@bannari.com | BTech Geography
+STUDENT | Student 17 | student17@bannari.com | BTech Engineering
+STUDENT | Student 18 | student18@bannari.com | BTech Science
+STUDENT | Student 19 | student19@bannari.com | BTech History
+STUDENT | Student 2 | student2@bannari.com | BTech English
+STUDENT | Student 20 | student20@bannari.com | BTech English
+STUDENT | Student 3 | student3@bannari.com | BTech Math
+STUDENT | Student 4 | student4@bannari.com | BTech Geography
+STUDENT | Student 5 | student5@bannari.com | BTech Engineering
+STUDENT | Student 6 | student6@bannari.com | BTech Science
+STUDENT | Student 7 | student7@bannari.com | BTech History
+STUDENT | Student 8 | student8@bannari.com | BTech English
+STUDENT | Student 9 | student9@bannari.com | BTech Math
+STUDENT | THITHIKSAA | thithi@bannari.com | BTECH IT
+STUDENT | student1 | stu1@bannari.com | Btech
+STUDENT | student11 | stu11@bannari.com | BE
+STUDENT | student111 | stu111@bannari.com | BE
+STUDENT | student2 | stu2@bannari.com | Btech
+STUDENT | student22 | stu22@bannari.com | BE
+STUDENT | student222 | stu222@bannari.com | BE
+STUDENT | student3 | stu3@bannari.com | Btech
+STUDENT | student33 | stu33@bannari.com | BE
+TEACHER | Dr. Aruna | aruna@bannari.com | BTech CSE
+TEACHER | Dr. Bharat | bharat@bannari.com | BTech IT
+TEACHER | Dr. Chitra | chitra@bannari.com | BTech ECE
+TEACHER | Dr. Deepak | deepak@bannari.com | BTech MECH
+TEACHER | Dr. Easwari | easwari@bannari.com | BTech CIVIL
+TEACHER | Dr.SHANMUGESH | shanmu@bannari.com | S1
+TEACHER | Faculty1 | faculty1@bannari.com | IT
+TEACHER | Krishna | krishna@bannari.com | IT

@@ -4,11 +4,7 @@ let currentScore = 0;
 let totalWarnings = 0; 
 let examTimer = 0; 
 let timerInterval;
-let aiMockInterval;
 let questionsData = [];
-
-let lastViolationTime = 0;
-const VIOLATION_DEBOUNCE_MS = 2000;
 
 window.onload = async () => {
     currentUser = checkAuth(['student']);
@@ -20,14 +16,18 @@ window.onload = async () => {
     activeExamContext = JSON.parse(ctxString);
     
     // Apply subject-specific theme
-    applySubjectTheme(activeExamContext.subject);
+    if (activeExamContext.subject) {
+        applySubjectTheme(activeExamContext.subject);
+    }
     
     document.getElementById('user-display-name').innerText = currentUser.username || currentUser.name || currentUser.email.split('@')[0];
     document.getElementById('welcome-text').innerText = `Exam Active`;
     
-    await setupWebcam(); // Must start webcam for snapshot
+    await setupWebcam();
     
-    // Test is blocked by verification overlay visually.
+    // Skip verification — go straight to loading questions
+    await fetchQuestions();
+    initMalpracticeMonitoring(activeExamContext.attemptId, logViolationUIUpdate);
 };
 
 function applySubjectTheme(subject) {
@@ -35,51 +35,6 @@ function applySubjectTheme(subject) {
     document.body.classList.add('has-subject-theme');
     document.body.classList.add(`theme-${subject}`);
 }
-
-async function captureSnapshot() {
-    const video = document.getElementById('webcam');
-    const btn = document.getElementById('capture-snapshot-btn');
-    const errUI = document.getElementById('verification-error');
-    
-    if (!video || !video.videoWidth) {
-        errUI.innerText = "Camera not ready or permission denied.";
-        return;
-    }
-
-    btn.innerText = "Verifying...";
-    btn.disabled = true;
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-    
-    try {
-        const res = await fetch('/api/student/verify-identity', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ attemptId: activeExamContext.attemptId, snapshot: base64Image })
-        });
-        
-        if (res.ok) {
-            document.getElementById('verification-overlay').style.display = 'none';
-            // Start exam logic after verified
-            await fetchQuestions();
-            initMalpracticeMonitoring(activeExamContext.attemptId, logViolationUIUpdate);
-        } else {
-            const data = await res.json();
-            errUI.innerText = data.error || "Verification failed.";
-            btn.innerText = "📸 Capture Snapshot & Verify";
-            btn.disabled = false;
-        }
-    } catch(err) {
-        errUI.innerText = "System error during verification.";
-        btn.innerText = "📸 Capture Snapshot & Verify";
-        btn.disabled = false;
-    }
-}
-
 
 // Sync UI when a violation is logged via malpractice.js
 function logViolationUIUpdate(type, severity) {
@@ -97,19 +52,37 @@ async function fetchQuestions() {
         const res = await fetch(`/api/student/exam/${activeExamContext.examId}/questions`);
         questionsData = await res.json();
         
-        examTimer = 120; 
+        // Use actual exam duration from context, fallback to 120 seconds
+        examTimer = activeExamContext.duration || 120; 
         startTimer();
 
         const container = document.getElementById('dynamic-questions-container');
         container.innerHTML = '';
         
+        if (questionsData.length === 0) {
+            container.innerHTML = '<p style="color:var(--warning); font-weight:bold;">No questions found for this exam.</p>';
+            return;
+        }
+        
         questionsData.forEach((q, index) => {
             const qDiv = document.createElement('div');
             qDiv.style.marginBottom = '25px';
+            qDiv.style.padding = '20px';
+            qDiv.style.background = 'rgba(0,0,0,0.05)';
+            qDiv.style.borderRadius = '10px';
+            qDiv.style.border = '1px solid var(--border-color)';
             
-            let html = `<h3 style="margin-bottom:10px;">Q${index + 1}: ${q.text}</h3>`;
-            q.options.forEach((opt, oIndex) => {
-                html += `<label style="display:block; margin-bottom:8px; font-size:16px; cursor:pointer;">
+            // Show section title if available
+            let sectionLabel = '';
+            if (q.section_title && q.section_title !== 'General') {
+                sectionLabel = `<span style="font-size:12px; color:var(--primary); text-transform:uppercase; font-weight:700; letter-spacing:1px;">${q.section_title}</span>`;
+            }
+            
+            let html = `${sectionLabel}<h3 style="margin-bottom:12px; margin-top:5px;">Q${index + 1}: ${q.text}</h3>`;
+            q.options.forEach((opt) => {
+                html += `<label style="display:block; margin-bottom:10px; font-size:16px; cursor:pointer; padding:8px 12px; border-radius:6px; transition:background 0.2s;" 
+                          onmouseover="this.style.background='rgba(var(--primary-rgb),0.1)'" 
+                          onmouseout="this.style.background='transparent'">
                             <input type="radio" name="q${q.id}" value="${opt}" style="width:auto; margin:0 10px 0 0;"> ${opt}
                          </label>`;
             });
@@ -118,22 +91,28 @@ async function fetchQuestions() {
         });
     } catch (e) {
         console.error("Failed to fetch questions", e);
+        document.getElementById('dynamic-questions-container').innerHTML = 
+            '<p style="color:var(--danger); font-weight:bold;">Failed to load questions. Please refresh the page.</p>';
     }
 }
 
 function startTimer() {
+    updateTimerDisplay();
     timerInterval = setInterval(() => {
         examTimer--;
-        const mins = String(Math.floor(examTimer / 60)).padStart(2, '0');
-        const secs = String(examTimer % 60).padStart(2, '0');
-        const timerDisplay = document.getElementById('timer');
-        if (timerDisplay) timerDisplay.innerText = `${mins}:${secs}`;
-        
+        updateTimerDisplay();
         if (examTimer <= 0) {
             clearInterval(timerInterval);
             submitExam(false); 
         }
     }, 1000);
+}
+
+function updateTimerDisplay() {
+    const mins = String(Math.floor(examTimer / 60)).padStart(2, '0');
+    const secs = String(examTimer % 60).padStart(2, '0');
+    const timerDisplay = document.getElementById('timer');
+    if (timerDisplay) timerDisplay.innerText = `${mins}:${secs}`;
 }
 
 function checkAutoLogout() {
@@ -143,21 +122,19 @@ function checkAutoLogout() {
 }
 
 function updateWarningUI(violationType) {
-    document.body.classList.remove('warning-active');
-    document.body.classList.remove('freeze-active');
+    const freezeOverlay = document.getElementById('freeze-overlay');
+    const banner = document.getElementById('global-warning-banner');
     
     if (totalWarnings === 4) {
-        document.body.classList.add('freeze-active');
-        const banner = document.getElementById('global-warning-banner');
+        if (freezeOverlay) freezeOverlay.style.display = 'flex';
         if (banner) banner.style.display = 'block';
-        showToast("CRITICAL WARNING: 1 more violation will result in disqualification.", 'danger');
+        showToast("CRITICAL WARNING: 1 more violation = disqualification.", 'danger');
         
         setTimeout(() => {
-            document.body.classList.remove('freeze-active');
+            if (freezeOverlay) freezeOverlay.style.display = 'none';
         }, 3000);
         
-    } else if (totalWarnings >= 1) {
-        document.body.classList.add('warning-active');
+    } else if (totalWarnings >= 1 && totalWarnings < 4) {
         showToast("Notice: Activity Recorded (" + violationType + ")", 'warning');
     }
 }
@@ -183,7 +160,7 @@ async function submitExam(isAutoSubmit = false) {
         } else {
              document.getElementById('exam-container').innerHTML = `
                 <div class="card">
-                    <h1 style="color:var(--success)">Exam Successfully Captured</h1>
+                    <h1 style="color:var(--success)">Exam Successfully Submitted</h1>
                     <p>Institutional record has been finalized.</p>
                     <button onclick="window.location.href='student.html'" style="margin-top:20px;">Return to Portal</button>
                 </div>
@@ -191,36 +168,27 @@ async function submitExam(isAutoSubmit = false) {
         }
     } catch (e) {
         console.warn("Session sync failed:", e);
-        showToast("Session sync interrupted. Retrying...", 'warning');
+        showToast("Session sync interrupted.", 'warning');
     }
 }
 
-function updateWarningUI(violationType) {
-    document.body.classList.remove('warning-active');
-    document.body.classList.remove('freeze-active');
-    
-    if (totalWarnings === 4) {
-        document.body.classList.add('freeze-active');
-        const banner = document.getElementById('global-warning-banner');
-        if (banner) banner.style.display = 'block';
-        showToast("CRITICAL WARNING: 1 more violation will result in disqualification.", 'danger');
-        
-        setTimeout(() => {
-            document.body.classList.remove('freeze-active');
-        }, 3000);
-        
-    } else if (totalWarnings >= 1) {
-        document.body.classList.add('warning-active');
-        showToast("Notice: Activity Recorded (" + violationType + ")", 'warning');
-    }
-}
 async function setupWebcam() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        document.getElementById('webcam').srcObject = stream;
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const video = document.getElementById('webcam');
+        video.srcObject = stream;
+        
+        // Wait for the video metadata to load before playing
+        await new Promise((resolve) => {
+            video.onloadedmetadata = () => {
+                video.play().then(resolve).catch(resolve);
+            };
+            // Fallback timeout
+            setTimeout(resolve, 3000);
+        });
+        
+        console.log("Webcam initialized successfully.");
     } catch (err) {
-        // Fallback for no camera
-        logViolationUIUpdate("Webcam Access Denied", 5);
-        showToast("Webcam is mandatory for this institutional exam.", "danger");
+        console.warn("Webcam access denied - continuing without camera.", err);
     }
 }

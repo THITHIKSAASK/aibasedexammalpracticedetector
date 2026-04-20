@@ -3,23 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bannari Amman Institute - Exam Portal</title>
+    <title>Bannari Amman Institute of Technology - Exam Portal</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="hero-wrapper">
-    <div class="hero-content">
-        <!-- HERO VISUAL -->
-        <div class="hero-visual">
-            <img src="institutional_exam_illustration_1775540467192.png" alt="Institutional Intelligence Illustration">
-        </div>
+    <!-- Dynamic Background Layers -->
+    <div class="hero-bg-layer active" style="background-image: url('css/hero-v4.png');"></div>
+    <div class="hero-bg-layer" style="background-image: url('hero-campus.png');"></div>
+    <div class="hero-bg-layer" style="background-image: url('hero-v3.png');"></div>
+    <div class="hero-overlay"></div>
 
+    <div class="hero-content">
         <!-- HERO PORTAL -->
         <div class="hero-portal animate-in">
             <div class="container" style="padding:0;">
                 
                 <!-- INITIAL DECISION & LOGIN -->
                 <div class="glass-card" id="initial-decision">
-                    <h1 style="color: #fff; margin-bottom: 8px;">Bannari Amman Institute</h1>
+                    <div style="display:flex; justify-content:center; margin-bottom:20px;">
+                        <img src="hero-campus.png" alt="BIT Campus" style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--primary); box-shadow:0 8px 25px rgba(0,0,0,0.3);">
+                    </div>
+                    <h1 style="color: #fff; margin-bottom: 8px;">Bannari Amman Institute of Technology</h1>
                     <p style="margin-bottom: 30px; font-size: 16px; opacity: 0.8; color: #fff;">Institutional Exam Management System</p>
                     
                     <div id="auth-main-view">
@@ -40,10 +44,10 @@
                     <!-- TRUST BADGES -->
                     <div class="trust-badges">
                         <div class="trust-item">
-                            <span style="font-size:16px;">🛡️</span> Secure Login
+                            Secure Login
                         </div>
                         <div class="trust-item">
-                            <span style="font-size:16px;">🤖</span> AI Proctored
+                            AI Proctored
                         </div>
                     </div>
                     
@@ -112,7 +116,9 @@
 
     </div>
     
+    <script src="js/theme.js"></script>
     <script src="js/validation.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/hero-slider.js"></script>
 </body>
 </html>

@@ -76,19 +76,41 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 FOREIGN KEY(attempt_id) REFERENCES attempts(id)
             )`);
 
+            db.run(`CREATE TABLE IF NOT EXISTS system_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT,
+                target_id INTEGER,
+                target_name TEXT,
+                actor_id INTEGER,
+                description TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`);
+
             db.run(`CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sender_id INTEGER,
                 receiver_id INTEGER,
                 content TEXT,
+                message_type TEXT DEFAULT 'text',
+                file_url TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                broadcast_role TEXT,
+                is_read BOOLEAN DEFAULT 0,
                 FOREIGN KEY(sender_id) REFERENCES users(id),
                 FOREIGN KEY(receiver_id) REFERENCES users(id)
             )`);
 
+            // Migration: Add columns if they don't exist
+            db.run("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'", (err) => {});
+            db.run("ALTER TABLE messages ADD COLUMN file_url TEXT", (err) => {});
+            db.run("ALTER TABLE messages ADD COLUMN broadcast_role TEXT", (err) => {});
+            db.run("ALTER TABLE messages ADD COLUMN is_read BOOLEAN DEFAULT 0", (err) => {});
+
             db.serialize(() => {
                 // Keep only a clean Admin account for initial setup
                 db.run(`INSERT OR IGNORE INTO users (email, role, username, name, designation) VALUES ('admin', 'admin', 'admin', 'Global Admin', 'System Administrator')`);
+                
+                db.run(`INSERT INTO system_logs (event_type, description) VALUES ('System Initialize', 'Institutional database v4 initialized with core security protocols.')`);
                 
                 console.log("Database initialized successfully with clean institutional state.");
             });

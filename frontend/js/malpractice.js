@@ -1,11 +1,14 @@
 // Advanced asynchronous monitoring system with multi-modal detection
 let audioContext, analyser, microphone;
 let violationCount = 0;
+let monitoringStartTime = 0;
+const CAMERA_GRACE_PERIOD = 8000; // 8 seconds grace period for camera to initialize
 
 function initMalpracticeMonitoring(attemptId, logViolationCallback) {
     if (!attemptId) return;
+    monitoringStartTime = Date.now();
 
-    // 1. Window Blur & Tab Switching (Medium Severity)
+    // 1. Tab Switching (Medium Severity)
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === 'hidden') {
             logViolationToBackend(attemptId, "Tab Switch / Inactive", 3, "browser");
@@ -18,15 +21,14 @@ function initMalpracticeMonitoring(attemptId, logViolationCallback) {
         if (logViolationCallback) logViolationCallback("Focus Lost", 2);
     });
 
-    // 2. Anti-Copy & Interaction Blockers
-    // Use document level listener for global capture
+    // 2. Anti-Copy
     document.addEventListener("copy", (e) => {
         e.preventDefault();
         logViolationToBackend(attemptId, "Copy Attempt Blocked", 2, "browser");
         if (logViolationCallback) logViolationCallback("Copy Attempt", 2);
     });
 
-    // 3. DevTools Detection (Keyboard)
+    // 3. DevTools Detection
     document.addEventListener("keydown", (e) => {
         if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
             logViolationToBackend(attemptId, "DevTools Attempt", 4, "browser");
@@ -38,79 +40,60 @@ function initMalpracticeMonitoring(attemptId, logViolationCallback) {
         e.preventDefault();
     });
 
-    // 3. Audio Monitoring (Low Severity initially)
+    // 4. Audio Monitoring
     initAudioMonitoring(attemptId);
 
-    // 4. Advanced Camera Monitoring (Presence & Multi-face)
-    setInterval(() => {
-        checkAdvancedCameraIntegrity(attemptId, logViolationCallback);
-    }, 2500); // Higher frequency check
+    // 5. Camera Monitoring — only starts AFTER grace period
+    setTimeout(() => {
+        setInterval(() => {
+            checkAdvancedCameraIntegrity(attemptId, logViolationCallback);
+        }, 4000); // Check every 4 seconds
+    }, CAMERA_GRACE_PERIOD);
 }
 
 let blurStartTime = null;
 
 function checkAdvancedCameraIntegrity(attemptId, logViolationCallback) {
     const video = document.getElementById('webcam');
-    if (!video) return;
+    if (!video || !video.srcObject) return; // No stream at all — skip silently
 
-    // Apply detection vignette if violation count is high
-    if (violationCount > 2) video.style.boxShadow = "0 0 20px rgba(255, 0, 0, 0.5)";
-
-    // A. Interrupted Stream
-    if (video.paused || video.ended) {
+    // Check if stream has active video tracks
+    const tracks = video.srcObject.getVideoTracks();
+    if (!tracks || tracks.length === 0 || tracks[0].readyState !== 'live') {
+        // Stream is truly dead
         logViolationToBackend(attemptId, "Camera Stream Interrupted", 5, "camera");
         if (logViolationCallback) logViolationCallback("Camera Interrupted", 5);
         return;
     }
 
-    // B. Presence Audit: Multi-person interference logic
-    // Using a more sensitive probability for the demo context
-    const multiFaceDetected = Math.random() < 0.15; // 15% sensitivity for multi-person demo
+    // Multi-face detection (simulated — 10% chance for demo)
+    const multiFaceDetected = Math.random() < 0.10;
     if (multiFaceDetected) {
         video.parentElement.style.borderColor = "var(--danger)";
         video.parentElement.style.boxShadow = "0 0 30px rgba(244, 63, 94, 0.6)";
         
-        // Update PIP Status badge
         const statusBadge = video.parentElement.querySelector('.proctoring-status');
         if (statusBadge) {
             statusBadge.innerText = "MULTI-PRESENCE ALERT";
             statusBadge.style.background = "var(--danger)";
-            statusBadge.classList.add('pulse-alert');
         }
 
         if (window.showToast) {
-            window.showToast("CRITICAL: MULTI-FACE DETECTED. Institutional protocol violated.", "danger");
+            window.showToast("ALERT: Multiple faces detected.", "danger");
         }
         
         setTimeout(() => {
             video.parentElement.style.borderColor = "var(--primary)";
             video.parentElement.style.boxShadow = "0 10px 40px rgba(0,0,0,0.4)";
             if (statusBadge) {
-                statusBadge.innerText = "Proctoring Active";
+                statusBadge.innerText = "PROCTORING ACTIVE";
                 statusBadge.style.background = "rgba(255, 0, 0, 0.7)";
-                statusBadge.classList.remove('pulse-alert');
             }
         }, 3000);
         
-        logViolationToBackend(attemptId, "Institutional Protocol: Additional Presence Detected", 4, "camera");
-        if (logViolationCallback) logViolationCallback("Multi-Person Interference", 4);
+        logViolationToBackend(attemptId, "Additional Presence Detected", 4, "camera");
+        if (logViolationCallback) logViolationCallback("Multi-Person", 4);
         violationCount++;
-    }
-
-    // C. Camera Blur / Physical Obstruction
-    const isBlurred = Math.random() < 0.08; 
-    if (isBlurred) {
-        if (!blurStartTime) blurStartTime = Date.now();
-        const duration = (Date.now() - blurStartTime) / 1000;
-        
-        if (duration >= 6) { // Reduced to 6s for stricter institutional check
-            logViolationToBackend(attemptId, "Visual Evidence Obscured (6s+)", 4, "camera");
-            if (logViolationCallback) logViolationCallback("Visual Obscured", 4);
-            blurStartTime = null; 
-            violationCount++;
-        }
-    } else {
-        blurStartTime = null; 
     }
 }
 
@@ -134,10 +117,9 @@ async function initAudioMonitoring(attemptId) {
             }
             let average = values / bufferLength;
             
-            // Minimal UI Update (Subtle)
             updateVolumeIndicator(average);
 
-            if (average > 80) { // Arbitrary threshold for "Noise"
+            if (average > 80) {
                 logViolationToBackend(attemptId, "High Ambient Noise", 1, "audio");
             }
             requestAnimationFrame(checkVolume);
@@ -158,14 +140,7 @@ function updateVolumeIndicator(volume) {
     } else if (volume > 40) {
         indicator.style.background = 'var(--secondary)';
     } else {
-        indicator.style.background = 'rgba(0,0,0,0.1)';
-    }
-}
-
-function checkCameraIntegrity(attemptId) {
-    const video = document.querySelector('video');
-    if (video && (video.paused || video.ended)) {
-        logViolationToBackend(attemptId, "Camera Stream Interrupted", 5, "camera");
+        indicator.style.background = '#00ff00';
     }
 }
 
@@ -178,7 +153,6 @@ async function logViolationToBackend(attemptId, type, severity, source) {
         });
         const data = await res.json();
         
-        // Asynchronous Feedback: Only warn if severity is high or repeated
         if (data.action === 'warn') {
             showSubtleWarning(type);
         }
@@ -188,10 +162,9 @@ async function logViolationToBackend(attemptId, type, severity, source) {
 }
 
 function showSubtleWarning(type) {
-    // Non-distracting push notification or subtle highlight
     const toast = document.getElementById('monitor-toast');
     if (toast) {
-        toast.innerText = `System Notice: ${type} logged. Please maintain focus.`;
+        toast.innerText = `System Notice: ${type} logged.`;
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 3000);
     }
