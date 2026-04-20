@@ -6,11 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function toggleTheme() {
-    const isDark = document.body.classList.toggle('dark-mode');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    const isLight = document.body.classList.toggle('light-mode');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
     
+    // Optional: Only update text if it's not a generic emoji button
     const btn = document.querySelector('.theme-toggle');
-    if (btn) {
-        btn.innerText = isDark ? '☀ Light Mode' : '🌙 Dark Mode';
+    if (btn && btn.innerText !== '🌓') {
+        btn.innerText = isLight ? '🌙' : '☀️';
     }
 }

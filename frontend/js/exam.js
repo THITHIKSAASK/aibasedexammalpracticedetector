@@ -22,6 +22,24 @@ window.onload = async () => {
     
     document.getElementById('user-display-name').innerText = currentUser.username || currentUser.name || currentUser.email.split('@')[0];
     document.getElementById('welcome-text').innerText = `Exam Active`;
+    // Wait for the user to click the enter fullscreen button.
+};
+
+window.enterExamFullscreen = async function() {
+    try {
+        if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) { // Safari
+            await document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) { // IE11
+            await document.documentElement.msRequestFullscreen();
+        }
+    } catch(err) {
+        console.warn("Could not initiate full screen:", err);
+    }
+
+    const gate = document.getElementById('fullscreen-gate');
+    if(gate) gate.style.display = 'none';
     
     await setupWebcam();
     

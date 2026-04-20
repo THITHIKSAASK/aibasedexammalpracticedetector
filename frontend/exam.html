@@ -11,6 +11,13 @@
     <div class="subject-theme"></div>
     <div class="warning-banner" id="global-warning-banner" style="display:none;">STRICT MONITORING: Violations recorded. Disqualification is imminent upon reaching 5 total warnings.</div>
     
+    <!-- FULLSCREEN GATE OVERLAY -->
+    <div id="fullscreen-gate" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-main); z-index:100000; display:flex; justify-content:center; align-items:center; flex-direction:column; padding: 40px; text-align: center;">
+        <h2 style="font-family:var(--font-head); font-size:32px;">Ready to Begin the Exam?</h2>
+        <p style="font-size:16px; opacity:0.8; margin-bottom: 25px;">This institutional protocol requires Full Screen mode to proceed.</p>
+        <button onclick="enterExamFullscreen()" style="padding: 15px 30px; font-size: 18px; border-radius: 8px;">Enter Full Screen & Start Protocol</button>
+    </div>
+
     <div id="freeze-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center;">
         <div style="background:var(--danger); padding:40px; border-radius:10px; color:white; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
             <h1 style="color:white; font-size:40px;">CRITICAL VIOLATION DETECTED</h1>
