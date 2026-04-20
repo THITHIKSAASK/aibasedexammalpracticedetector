@@ -62,8 +62,8 @@ function showTab(tabId, navId) {
     } else if (tabId === 'exam-tab') {
         fetchMyExams();
     } else if (tabId === 'comm-tab') {
-        window.fetchTeacherMessages();
-        document.getElementById('unread-badge').style.display = 'none'; // Clear badge locally when entering
+        const badge = document.getElementById('unread-badge');
+        if (badge) badge.style.display = 'none'; // Clear badge locally when entering
         fetchTeacherLogs();
         fetchTeacherContacts();
     }
@@ -86,11 +86,11 @@ async function fetchTeacherContacts() {
         if (deptSelect) {
             const departments = new Set();
             globalStudentsParams.forEach(s => { if (s.class) departments.add(s.class); });
-            deptSelect.innerHTML = '<option value="all">Select Subject</option>';
+            deptSelect.innerHTML = '<option value="all">All Classes</option>';
             Array.from(departments).sort().forEach(d => {
                 const opt = document.createElement('option');
                 opt.value = d;
-                opt.textContent = d;
+                opt.textContent = `Class: ${d}`;
                 deptSelect.appendChild(opt);
             });
         }

@@ -321,7 +321,7 @@ body.light-mode .top-nav, body.light-mode .top-nav h2 {
     backdrop-filter: blur(40px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 28px;
-    padding: 45px 50px;
+    padding: 30px 35px;
     color: #fff;
     box-shadow: 0 25px 60px rgba(0,0,0,0.6);
     animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1);
